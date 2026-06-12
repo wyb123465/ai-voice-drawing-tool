@@ -142,15 +142,35 @@ test("treats bare duplication phrases as duplicate and keeps draw intents intact
 
 test("blocks ambiguous edits for unknown semantic objects", () => {
   const unknownTransform = parseVoiceCommand("把猫变大");
+  const unknownLeadingTransform = parseVoiceCommand("猫变大一点");
+  const unknownCausativeTransform = parseVoiceCommand("让猫变大一点");
   const unknownDelete = parseVoiceCommand("删除小猫");
+  const unknownTrailingDelete = parseVoiceCommand("把小猫删除");
+  const unknownTrailingDuplicate = parseVoiceCommand("把小猫复制");
+  const directionOnlyMove = parseVoiceCommand("向右移动");
   const explicitLast = parseVoiceCommand("把刚才的图形变大一点");
 
   assert.equal(unknownTransform.commands.length, 0);
   assert.equal(unknownTransform.allowFallback, false);
   assert.match(unknownTransform.feedback, /无法确定/);
 
+  assert.equal(unknownLeadingTransform.commands.length, 0);
+  assert.equal(unknownLeadingTransform.allowFallback, false);
+
+  assert.equal(unknownCausativeTransform.commands.length, 0);
+  assert.equal(unknownCausativeTransform.allowFallback, false);
+
   assert.equal(unknownDelete.commands.length, 0);
   assert.equal(unknownDelete.allowFallback, false);
+
+  assert.equal(unknownTrailingDelete.commands.length, 0);
+  assert.equal(unknownTrailingDelete.allowFallback, false);
+
+  assert.equal(unknownTrailingDuplicate.commands.length, 0);
+  assert.equal(unknownTrailingDuplicate.allowFallback, false);
+
+  assert.equal(directionOnlyMove.commands[0].type, "transform");
+  assert.equal(directionOnlyMove.commands[0].move.dx, 80);
 
   assert.equal(explicitLast.commands[0].type, "transform");
   assert.equal(explicitLast.commands[0].target, "last");

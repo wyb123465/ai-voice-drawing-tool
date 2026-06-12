@@ -62,10 +62,11 @@ export async function resolveVoiceCommand(input, options = {}) {
       };
     }
   } catch (error) {
+    const errorDetail = describeError(error);
     return {
       ...local,
       source: "rule",
-      feedback: `云端解析失败，已回退本地规则（${describeError(error)}）`
+      feedback: `云端解析失败（${errorDetail}），已回退本地规则。请检查网络连接或 API 配置。`
     };
   }
 

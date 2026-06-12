@@ -138,7 +138,9 @@ export function parseVoiceCommand(input, context = {}) {
     commands: commands.map(({ confidence, ...command }) => command),
     allowFallback,
     confidence,
-    feedback: commands.length ? `解析出 ${commands.length} 个操作` : blockedFeedback || "没有识别到可执行的绘图指令"
+    feedback: commands.length
+      ? `解析出 ${commands.length} 个操作`
+      : blockedFeedback || "没有识别到可执行的绘图指令。试试：画一个红色圆形、把刚才的图形变大、清空画布"
   };
 }
 
@@ -328,13 +330,27 @@ function isBareDuplicatePhrase(text) {
 }
 
 function extractEditTargetText(text) {
+  // 匹配"把...变大"形式。
   const transformMatch = text.match(/^把(.+?)(变大|放大|变小|缩小|移动|移到|放到|挪到|挪|旋转|转|换成|改成|变成)/);
   if (transformMatch) {
     return cleanTargetText(transformMatch[1]);
   }
+  // 匹配"让...变大"或"猫变大"（无"把"/"让"前缀），但排除方向词开头的情况。
+  if (!/^(向|往|朝|到)/.test(text)) {
+    const causativeOrBareName = text.match(/^(让)?(.+?)(变大|放大|变小|缩小|移动|移到|放到|挪到|挪|旋转|转|换成|改成|变成)/);
+    if (causativeOrBareName) {
+      return cleanTargetText(causativeOrBareName[2]);
+    }
+  }
+  // 匹配"删除/复制..."形式。
   const objectMatch = text.match(/^(删除|删掉|移除|擦掉|复制|克隆)(.+)$/);
   if (objectMatch) {
     return cleanTargetText(objectMatch[2]);
+  }
+  // 匹配"把...删除/复制"形式。
+  const trailingAction = text.match(/^把(.+?)(删除|删掉|移除|擦掉|复制|克隆)$/);
+  if (trailingAction) {
+    return cleanTargetText(trailingAction[1]);
   }
   return "";
 }
