@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f3eb">
+    <title>AI Voice Drawing Studio</title>
+    <link rel="stylesheet" href="./src/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="AI voice drawing workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">XEngineer · AI voice drawing</p>
+            <h1>声绘工作台</h1>
+          </div>
+          <div class="voice-status" data-state="idle">
+            <span class="pulse" aria-hidden="true"></span>
+            <span id="voiceStatus">待启动</span>
+          </div>
+        </header>
+
+        <section class="stage-wrap" aria-label="drawing stage">
+          <canvas id="drawingCanvas" width="1280" height="800"></canvas>
+        </section>
+      </section>
+
+      <aside class="control-rail" aria-label="voice controls">
+        <button id="startVoice" class="primary-action" type="button">启动语音</button>
+        <button id="stopVoice" class="icon-action" type="button" aria-label="Stop voice mode">停止</button>
+
+        <section class="panel">
+          <h2>实时语音</h2>
+          <p id="liveTranscript" class="transcript">等待麦克风输入</p>
+        </section>
+
+        <section class="panel fallback-panel" id="fallbackPanel" hidden>
+          <h2>文本回放</h2>
+          <textarea id="fallbackInput" rows="4" autocomplete="off" spellcheck="false"></textarea>
+          <button id="runFallback" class="secondary-action" type="button">执行</button>
+        </section>
+
+        <section class="panel">
+          <h2>解析结果</h2>
+          <ol id="commandLog" class="command-log" aria-live="polite"></ol>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
