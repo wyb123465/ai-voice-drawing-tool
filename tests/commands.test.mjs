@@ -139,3 +139,19 @@ test("treats bare duplication phrases as duplicate and keeps draw intents intact
   assert.equal(draw.shape, "circle");
   assert.equal(draw.color, "#ef4444");
 });
+
+test("blocks ambiguous edits for unknown semantic objects", () => {
+  const unknownTransform = parseVoiceCommand("把猫变大");
+  const unknownDelete = parseVoiceCommand("删除小猫");
+  const explicitLast = parseVoiceCommand("把刚才的图形变大一点");
+
+  assert.equal(unknownTransform.commands.length, 0);
+  assert.equal(unknownTransform.allowFallback, false);
+  assert.match(unknownTransform.feedback, /无法确定/);
+
+  assert.equal(unknownDelete.commands.length, 0);
+  assert.equal(unknownDelete.allowFallback, false);
+
+  assert.equal(explicitLast.commands[0].type, "transform");
+  assert.equal(explicitLast.commands[0].target, "last");
+});

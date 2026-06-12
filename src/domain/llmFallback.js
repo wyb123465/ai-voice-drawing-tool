@@ -80,6 +80,9 @@ export function shouldUseFallback(localResult, threshold = FALLBACK_CONFIDENCE_T
   if (!localResult || !Array.isArray(localResult.commands)) {
     return true;
   }
+  if (localResult.allowFallback === false) {
+    return false;
+  }
   if (localResult.commands.length === 0) {
     return true;
   }

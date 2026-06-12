@@ -116,14 +116,29 @@ export function parseShape(text, preference = "first") {
 
 export function parseVoiceCommand(input, context = {}) {
   const parts = splitCompoundCommand(input);
-  const commands = parts.flatMap((part, index) => parseSingleClause(part, index, context));
+  let allowFallback = true;
+  let blockedFeedback = "";
+  const commands = [];
+
+  for (const [index, part] of parts.entries()) {
+    for (const command of parseSingleClause(part, index, context)) {
+      if (command.type === "__blocked") {
+        allowFallback = false;
+        blockedFeedback ||= command.feedback;
+      } else {
+        commands.push(command);
+      }
+    }
+  }
+
   const confidence = commands.length ? average(commands.map((command) => command.confidence || 0.8)) : 0.2;
 
   return {
     normalized: normalizeSpeech(input),
     commands: commands.map(({ confidence, ...command }) => command),
+    allowFallback,
     confidence,
-    feedback: commands.length ? `解析出 ${commands.length} 个操作` : "没有识别到可执行的绘图指令"
+    feedback: commands.length ? `解析出 ${commands.length} 个操作` : blockedFeedback || "没有识别到可执行的绘图指令"
   };
 }
 
@@ -150,13 +165,15 @@ function parseSingleClause(clause, index, context) {
   }
 
   if (/(删除|删掉|移除|擦掉)/.test(text) && !/(全部|画布)/.test(text)) {
-    return [parseObjectCommand("delete", text, 0.9)];
+    const command = parseObjectCommand("delete", text, 0.9);
+    return [blockIfAmbiguousEdit(text, command)];
   }
 
   // splitCompoundCommand 会把"再"切成分句符，所以"再来一个"到这里只剩"来一个"，
   // 用整句匹配避免把"来一个红色圆形"这类绘制意图误判成复制。
   if (/(复制|克隆|画一个一样)/.test(text) || /^再?来一个$/.test(text)) {
-    return [parseObjectCommand("duplicate", text, 0.86)];
+    const command = parseObjectCommand("duplicate", text, 0.86);
+    return [blockIfAmbiguousEdit(text, command)];
   }
 
   if (/(背景|底色)/.test(text)) {
@@ -170,7 +187,8 @@ function parseSingleClause(clause, index, context) {
   }
 
   if (/(变大|放大|变小|缩小|移动|移到|放到|挪|旋转|转|换成|改成|变成)/.test(text) && !/(背景|底色)/.test(text)) {
-    return [parseTransform(text)];
+    const command = parseTransform(text);
+    return [blockIfAmbiguousEdit(text, command)];
   }
 
   if (/(写|文字|文本|标注)/.test(text)) {
@@ -280,6 +298,59 @@ function parseObjectCommand(type, text, confidence) {
     command.colorFilter = colorFilter;
   }
   return command;
+}
+
+function blockIfAmbiguousEdit(text, command) {
+  if (!isAmbiguousEditTarget(text, command)) {
+    return command;
+  }
+  return {
+    type: "__blocked",
+    confidence: 0.95,
+    feedback: "无法确定要操作哪个图形。请说“刚才的图形”，或使用圆形、矩形、树等已支持的图形名。"
+  };
+}
+
+function isAmbiguousEditTarget(text, command) {
+  if (command.shape || command.colorFilter || hasExplicitTargetReference(text) || isBareDuplicatePhrase(text)) {
+    return false;
+  }
+  const target = extractEditTargetText(text);
+  return Boolean(target && !isGenericTargetText(target));
+}
+
+function hasExplicitTargetReference(text) {
+  return /(刚才|上一个|最后|最近|第一个|最初|最早|最先|开头那个|一开始|它|这个|那个|图形|对象|元素)/.test(text);
+}
+
+function isBareDuplicatePhrase(text) {
+  return /^再?来一个$/.test(text) || /^再?画一个一样$/.test(text);
+}
+
+function extractEditTargetText(text) {
+  const transformMatch = text.match(/^把(.+?)(变大|放大|变小|缩小|移动|移到|放到|挪到|挪|旋转|转|换成|改成|变成)/);
+  if (transformMatch) {
+    return cleanTargetText(transformMatch[1]);
+  }
+  const objectMatch = text.match(/^(删除|删掉|移除|擦掉|复制|克隆)(.+)$/);
+  if (objectMatch) {
+    return cleanTargetText(objectMatch[2]);
+  }
+  return "";
+}
+
+function cleanTargetText(text) {
+  let target = String(text || "");
+  for (const [name] of COLOR_ALIASES) {
+    target = target.replaceAll(name, "");
+  }
+  return target
+    .replace(/[的个只条座棵颗朵一二两三四五六七八九十\d]/g, "")
+    .trim();
+}
+
+function isGenericTargetText(text) {
+  return !text || /^(图形|对象|元素|它|这个|那个|刚才|上一个|最后|最近|第一个|最初|最早|最先|开头那个|一开始)+$/.test(text);
 }
 
 function resolveTarget(text) {

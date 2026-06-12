@@ -20,6 +20,30 @@ test("uses local rules and never calls resolver for a clear command", async () =
   assert.equal(result.commands[0].shape, "circle");
 });
 
+test("does not fall back for ambiguous edits that could mutate the wrong object", async () => {
+  let called = false;
+  const resolver = async () => {
+    called = true;
+    return { commands: [{ type: "draw", shape: "circle", color: "灰色", position: "center" }] };
+  };
+
+  const result = await resolveVoiceCommand("把猫变大", { resolver });
+
+  assert.equal(called, false);
+  assert.equal(result.source, "rule");
+  assert.equal(result.commands.length, 0);
+  assert.match(result.feedback, /无法确定/);
+});
+
+test("still allows explicit last-object edits without a shape name", async () => {
+  const result = await resolveVoiceCommand("把刚才的图形变大一点");
+
+  assert.equal(result.source, "rule");
+  assert.equal(result.commands[0].type, "transform");
+  assert.equal(result.commands[0].target, "last");
+  assert.ok(result.commands[0].scale > 1);
+});
+
 test("falls back to the cloud resolver when local parsing finds nothing", async () => {
   const resolver = async (text) => {
     assert.equal(text, "帮我整一只可爱的猫咪");

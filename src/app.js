@@ -138,8 +138,14 @@ function setupControls() {
       return;
     }
     if (!listening) {
-      recognition.start();
-      speak("语音模式已启动");
+      try {
+        recognition.start();
+        speak("语音模式已启动");
+      } catch (error) {
+        if (error.name !== "InvalidStateError") {
+          throw error;
+        }
+      }
     }
   });
 
