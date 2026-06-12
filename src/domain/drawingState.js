@@ -282,7 +282,16 @@ function resolveTransformedY(state, element, command) {
 }
 
 function findTargetIndex(state, command) {
-  const matches = (index) => !command.shape || state.elements[index].shape === command.shape;
+  const matches = (index) => {
+    const element = state.elements[index];
+    if (command.shape && element.shape !== command.shape) {
+      return false;
+    }
+    if (command.colorFilter && element.color !== command.colorFilter) {
+      return false;
+    }
+    return true;
+  };
 
   if (command.target === "first") {
     for (let index = 0; index < state.elements.length; index += 1) {

@@ -48,8 +48,12 @@ http://localhost:4173/?replay=1&demo=画一条黑色波浪线|画一个蓝色矩
 把刚才的树向右移动
 把刚才的矩形旋转45度
 把刚才的圆移到左上角
+把蓝色的圆改成红色
 复制刚才的矩形
+再来一个
 删除刚才的圆
+删除红色的圆
+删除第一个圆
 撤销上一步
 重做
 清空画布
@@ -90,6 +94,8 @@ window.__VOICE_LLM__ = {
 
 约束：密钥不会写入页面 URL 或日志；云端只在本地低置信度时触发；云端返回的命令必须通过形状/颜色/位置白名单校验，非法字段就近回退默认，无法越权产生未知指令。解析结果日志会标注来源（规则 / 云端）。
 
+不配置密钥也可以演示这条链路：打开 `http://localhost:4173/?replay=1&llmdemo=1`，输入"画一只猫""画一座房子"等开放表达。此模式使用本地模拟响应（不发任何网络请求），日志会明确标注"云端·模拟"，仅用于展示"低置信度 → 兜底 → 白名单校验 → 绘制"的完整链路。
+
 ## 项目结构
 
 ```text
@@ -101,10 +107,12 @@ src/domain/drawingState.js
 src/domain/renderCanvas.js
 src/domain/llmFallback.js
 src/llm/openaiResolver.js
+src/llm/mockResolver.js
 tests/commands.test.mjs
 tests/drawingState.test.mjs
 tests/llmFallback.test.mjs
 tests/openaiResolver.test.mjs
+tests/mockResolver.test.mjs
 docs/design.md
 docs/superpowers/plans/2026-06-12-voice-drawing-tool.md
 scripts/serve.mjs

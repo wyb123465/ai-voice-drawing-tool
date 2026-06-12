@@ -68,6 +68,9 @@ const NUMBER_WORDS = new Map([
   ["十", 10]
 ]);
 
+const POSITION_WORDS =
+  "左上角|左上|右上角|右上|左下角|左下|右下角|右下|正中央|正中|中央|中间|中心|顶部|上方|上面|底部|下方|下面|左侧|左边|右侧|右边";
+
 export function normalizeSpeech(input) {
   let text = String(input || "").trim();
   text = text.replace(/\s+/g, "");
@@ -150,7 +153,9 @@ function parseSingleClause(clause, index, context) {
     return [parseObjectCommand("delete", text, 0.9)];
   }
 
-  if (/(复制|克隆|再来一个|再画一个一样)/.test(text)) {
+  // splitCompoundCommand 会把"再"切成分句符，所以"再来一个"到这里只剩"来一个"，
+  // 用整句匹配避免把"来一个红色圆形"这类绘制意图误判成复制。
+  if (/(复制|克隆|画一个一样)/.test(text) || /^再?来一个$/.test(text)) {
     return [parseObjectCommand("duplicate", text, 0.86)];
   }
 
@@ -164,7 +169,7 @@ function parseSingleClause(clause, index, context) {
     ];
   }
 
-  if (/(变大|放大|变小|缩小|移动|移到|放到|挪|旋转|转|换成|改成)/.test(text) && !/(背景|底色)/.test(text)) {
+  if (/(变大|放大|变小|缩小|移动|移到|放到|挪|旋转|转|换成|改成|变成)/.test(text) && !/(背景|底色)/.test(text)) {
     return [parseTransform(text)];
   }
 
@@ -230,9 +235,22 @@ function parseTransform(text) {
   if (/(变小|缩小)/.test(text)) {
     command.scale = /一点|一些/.test(text) ? 0.82 : 0.65;
   }
-  const color = parseColor(text);
-  if (/(换成|改成)/.test(text) && color) {
-    command.color = color;
+  // "把蓝色的圆改成红色"：标记词之前的颜色是选择条件，之后的才是新颜色。
+  const changeMarker = text.search(/换成|改成|变成/);
+  if (changeMarker >= 0) {
+    const newColor = parseColor(text.slice(changeMarker));
+    if (newColor) {
+      command.color = newColor;
+    }
+    const filterColor = parseColor(text.slice(0, changeMarker));
+    if (filterColor) {
+      command.colorFilter = filterColor;
+    }
+  } else {
+    const filterColor = parseColor(text);
+    if (filterColor) {
+      command.colorFilter = filterColor;
+    }
   }
   const move = parseMove(text);
   if (move) {
@@ -251,12 +269,17 @@ function parseTransform(text) {
 }
 
 function parseObjectCommand(type, text, confidence) {
-  return {
+  const command = {
     type,
     target: resolveTarget(text),
     shape: parseShape(text, "last"),
     confidence
   };
+  const colorFilter = parseColor(text);
+  if (colorFilter) {
+    command.colorFilter = colorFilter;
+  }
+  return command;
 }
 
 function resolveTarget(text) {
@@ -392,8 +415,12 @@ function extractLabelText(clause) {
   if (quoted) {
     return quoted[1].trim();
   }
+  // 口述没有引号："在左上角写上你好七牛"。先剥离首尾的位置短语，再剥离动词，
+  // 否则位置词会被当成文字内容画到画布上。
   return normalizeSpeech(clause)
+    .replace(new RegExp(`^在?(${POSITION_WORDS})`), "")
     .replace(/^(写上|写|添加文字|加文字|文字|文本|标注)/, "")
+    .replace(new RegExp(`在?(${POSITION_WORDS})$`), "")
     .replace(/(在.*?位置|到.*)$/g, "")
     .trim() || "文字";
 }

@@ -97,3 +97,45 @@ test("resolves first vs last target for edit commands", () => {
   assert.equal(deleteLast.target, "last");
   assert.equal(dupeFirst.target, "first");
 });
+
+test("extracts label text from unquoted position-prefixed text commands", () => {
+  const lead = parseVoiceCommand("在左上角写上你好七牛").commands[0];
+  const trail = parseVoiceCommand("写上你好七牛在左上角").commands[0];
+
+  assert.equal(lead.type, "text");
+  assert.equal(lead.text, "你好七牛");
+  assert.equal(lead.position, "top-left");
+
+  assert.equal(trail.text, "你好七牛");
+  assert.equal(trail.position, "top-left");
+});
+
+test("parses color filters for edits and after-marker colors for recoloring", () => {
+  const deletion = parseVoiceCommand("删除红色的圆").commands[0];
+  const grow = parseVoiceCommand("把蓝色的圆变大一点").commands[0];
+  const recolor = parseVoiceCommand("把蓝色的圆改成红色").commands[0];
+  const recolorLast = parseVoiceCommand("把刚才的圆改成蓝色").commands[0];
+
+  assert.equal(deletion.type, "delete");
+  assert.equal(deletion.colorFilter, "#ef4444");
+
+  assert.equal(grow.type, "transform");
+  assert.equal(grow.colorFilter, "#2563eb");
+  assert.ok(grow.scale > 1);
+
+  assert.equal(recolor.color, "#ef4444");
+  assert.equal(recolor.colorFilter, "#2563eb");
+
+  assert.equal(recolorLast.color, "#2563eb");
+  assert.equal(recolorLast.colorFilter, undefined);
+});
+
+test("treats bare duplication phrases as duplicate and keeps draw intents intact", () => {
+  assert.equal(parseVoiceCommand("再来一个").commands[0].type, "duplicate");
+  assert.equal(parseVoiceCommand("再画一个一样的").commands[0].type, "duplicate");
+
+  const draw = parseVoiceCommand("来一个红色圆形").commands[0];
+  assert.equal(draw.type, "draw");
+  assert.equal(draw.shape, "circle");
+  assert.equal(draw.color, "#ef4444");
+});

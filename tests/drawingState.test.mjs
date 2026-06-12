@@ -142,3 +142,24 @@ test("deletes the first matching element when target is first", () => {
   // 删掉的应是第一个（红色），保留的是后画的蓝色。
   assert.equal(state.elements[0].color, "#2563eb");
 });
+
+test("edits only the element matching the color filter", () => {
+  const initial = applyCommands(createInitialState(), [
+    { type: "draw", shape: "circle", color: "#ef4444", position: "left" },
+    { type: "draw", shape: "circle", color: "#2563eb", position: "right" }
+  ]).state;
+
+  const deleted = applyCommands(initial, [
+    { type: "delete", target: "last", shape: "circle", colorFilter: "#ef4444" }
+  ]).state;
+
+  assert.equal(deleted.elements.length, 1);
+  assert.equal(deleted.elements[0].color, "#2563eb");
+
+  const recolored = applyCommands(initial, [
+    { type: "transform", target: "last", shape: "circle", colorFilter: "#ef4444", color: "#16a34a" }
+  ]).state;
+
+  assert.equal(recolored.elements[0].color, "#16a34a");
+  assert.equal(recolored.elements[1].color, "#2563eb");
+});

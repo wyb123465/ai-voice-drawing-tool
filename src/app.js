@@ -1,5 +1,6 @@
 import { resolveVoiceCommand } from "./domain/llmFallback.js";
 import { createOpenAiResolver } from "./llm/openaiResolver.js";
+import { createMockLlmResolver } from "./llm/mockResolver.js";
 import { parseDemoScript } from "./domain/demoScript.js";
 import { applyCommands, createInitialState } from "./domain/drawingState.js";
 import { renderCanvas } from "./domain/renderCanvas.js";
@@ -8,6 +9,8 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 const searchParams = new URLSearchParams(window.location.search);
 const replayMode = searchParams.has("replay");
 const demoCommands = parseDemoScript(searchParams.get("demo"));
+// ?llmdemo=1：无密钥演示兜底链路，使用本地模拟响应，日志会标注"云端·模拟"。
+const mockResolver = searchParams.has("llmdemo") ? createMockLlmResolver() : null;
 
 const canvas = document.querySelector("#drawingCanvas");
 const commandLog = document.querySelector("#commandLog");
@@ -23,40 +26,59 @@ const voiceStatusWrap = document.querySelector(".voice-status");
 let state = createInitialState();
 let recognition = null;
 let listening = false;
-
-// 云端兜底：仅当页面显式注入 window.__VOICE_LLM__ = { apiKey, endpoint?, model? } 时启用。
-// 默认离线，纯本地规则解析，零成本、零数据外泄。
-const llmResolver = createConfiguredResolver();
+let llmResolver = null;
+let llmConfigUsed = null;
+// handleUtterance 是 async：不串行的话，连续两句最终识别结果会读到同一份旧 state，
+// 后执行的一句会覆盖前一句的绘制结果。所有入口都必须经过这个队列。
+let utteranceQueue = Promise.resolve();
 
 renderCanvas(canvas, state);
 setupSpeechRecognition();
 setupControls();
 announceStatus("ready", SpeechRecognition ? "待启动" : "文本回放");
+if (mockResolver) {
+  logEntry("云端兜底演示模式已开启：低置信度指令将由本地模拟响应处理，仅用于展示链路。");
+}
 
 window.voiceDrawingDemo = {
-  run: handleUtterance,
+  run: enqueueUtterance,
   getState: () => structuredClone(state)
 };
 
 if (demoCommands.length) {
-  requestAnimationFrame(async () => {
+  requestAnimationFrame(() => {
     for (const command of demoCommands) {
-      await handleUtterance(command);
+      enqueueUtterance(command);
     }
   });
 }
 
-function createConfiguredResolver() {
+function enqueueUtterance(text) {
+  const run = utteranceQueue.then(() => handleUtterance(text));
+  utteranceQueue = run.catch((error) => {
+    console.error("指令处理失败：", error);
+  });
+  return run;
+}
+
+// 每次取用时按当前 window.__VOICE_LLM__ 重新判断，允许打开页面后再在控制台注入配置。
+function getLlmResolver() {
   const config = typeof window !== "undefined" ? window.__VOICE_LLM__ : null;
-  if (!config || !config.apiKey) {
-    return null;
+  if (config && config.apiKey) {
+    if (config !== llmConfigUsed) {
+      llmConfigUsed = config;
+      try {
+        llmResolver = createOpenAiResolver(config);
+      } catch (error) {
+        console.warn("云端兜底初始化失败，继续使用本地规则：", error);
+        llmResolver = null;
+      }
+    }
+    return llmResolver;
   }
-  try {
-    return createOpenAiResolver(config);
-  } catch (error) {
-    console.warn("云端兜底初始化失败，继续使用本地规则：", error);
-    return null;
-  }
+  llmConfigUsed = null;
+  llmResolver = null;
+  return mockResolver;
 }
 
 function setupSpeechRecognition() {
@@ -97,7 +119,7 @@ function setupSpeechRecognition() {
     for (let index = event.resultIndex; index < event.results.length; index += 1) {
       const transcript = event.results[index][0]?.transcript?.trim() || "";
       if (event.results[index].isFinal) {
-        handleUtterance(transcript);
+        enqueueUtterance(transcript);
       } else {
         interim += transcript;
       }
@@ -131,7 +153,7 @@ function setupControls() {
   runFallback.addEventListener("click", () => {
     const text = fallbackInput.value.trim();
     if (text) {
-      handleUtterance(text);
+      enqueueUtterance(text);
       fallbackInput.value = "";
     }
   });
@@ -143,9 +165,10 @@ async function handleUtterance(text) {
   }
 
   liveTranscript.textContent = text;
+  const resolver = getLlmResolver();
   const parsed = await resolveVoiceCommand(text, {
     context: { lastShape: state.elements.at(-1)?.shape || null },
-    resolver: llmResolver
+    resolver
   });
 
   if (!parsed.commands.length) {
@@ -162,7 +185,7 @@ async function handleUtterance(text) {
     exportCanvas();
   }
 
-  const sourceTag = parsed.source === "llm" ? "云端" : "规则";
+  const sourceTag = parsed.source !== "llm" ? "规则" : resolver === mockResolver ? "云端·模拟" : "云端";
   logEntry(`${text} →（${sourceTag}）${parsed.commands.map(describeCommand).join("，")}`);
   speak(result.messages.at(-1) || parsed.feedback);
 }
