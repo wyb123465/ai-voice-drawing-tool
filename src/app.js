@@ -150,7 +150,6 @@ function setupControls() {
     }
     if (!speechLoop.isRequested()) {
       speechLoop.start();
-      speak("语音模式已启动");
     }
   });
 
@@ -376,12 +375,27 @@ function speak(text) {
   if (!("speechSynthesis" in window)) {
     return;
   }
+  const resumeRecognition = speechLoop?.pauseForOutput() || false;
+  let resumed = false;
+  const resumeAfterSpeech = () => {
+    if (!resumed) {
+      resumed = true;
+      speechLoop?.resumeAfterOutput();
+    }
+  };
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "zh-CN";
   utterance.rate = 1.02;
   utterance.pitch = 1;
+  if (resumeRecognition) {
+    utterance.onend = resumeAfterSpeech;
+    utterance.onerror = resumeAfterSpeech;
+  }
   window.speechSynthesis.speak(utterance);
+  if (resumeRecognition) {
+    window.setTimeout(resumeAfterSpeech, Math.max(1600, text.length * 180));
+  }
 }
 
 function exportCanvas() {

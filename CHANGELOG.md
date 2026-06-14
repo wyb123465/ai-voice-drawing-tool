@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **来源标注**：日志显示每条指令的解析来源（规则/云端/云端·模拟）
 
 ### Added - 测试与文档
-- **72 个自动化测试**：覆盖命令解析、状态管理、LLM 兜底、OpenAI resolver、澄清追问、连续聆听、评审脚本数据
+- **75 个自动化测试**：覆盖命令解析、状态管理、LLM 兜底、OpenAI resolver、澄清追问、连续聆听、评审脚本数据
 - **完整设计文档**：架构说明、能力清单、未完成项说明、成本与隐私策略
 - **README 文档**：快速运行、支持指令、Demo 流程、技术实现、提交清单
 - **提交材料补强**：补充用户价值、提交说明、评审前清单、PR 模板和 MIT License

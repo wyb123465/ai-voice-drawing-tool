@@ -1,6 +1,6 @@
 # AI 语音绘图工具
 
-[![Tests](https://img.shields.io/badge/tests-72%20passed-success)](https://github.com/wyb123465/ai-voice-drawing-tool)
+[![Tests](https://img.shields.io/badge/tests-75%20passed-success)](https://github.com/wyb123465/ai-voice-drawing-tool)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
 
@@ -28,7 +28,7 @@
 - 🗣️ **澄清追问**：对“整个三角形上去”“把它上去”“把这个圆上去”这类低置信表达先反问，听到“对”后再执行；点名不存在的形状会被阻断，不会进入澄清或执行缩放/换色
 - 🔒 **白名单校验**：云端开放输出必须过形状/颜色/位置白名单，非法值就近回退默认
 - 🎬 **演示模式**：`?llmdemo=1` 无需真密钥即可演示完整云端链路
-- 🧪 **72 个测试全过**：覆盖解析、状态、渲染、兜底、澄清追问、连续聆听、网络异常等关键路径
+- 🧪 **75 个测试全过**：覆盖解析、状态、渲染、兜底、澄清追问、连续聆听、网络异常等关键路径
 - 📦 **零依赖**：纯前端，无运行时依赖，测试用 Node.js 内置 test runner
 - 🏗️ **企业级架构**：命令解析、状态引擎、渲染器完全分离，可测试、可复现
 
@@ -95,7 +95,7 @@ http://localhost:4173/?replay=1&demo=画一条黑色波浪线|画一个蓝色矩
 
 **项目规模**
 - 约 2600 行代码（含测试）
-- 72 个测试用例，100% 通过
+- 75 个测试用例，100% 通过
 - 16 个模块，零运行时依赖
 
 ## 🎯 支持的语音指令

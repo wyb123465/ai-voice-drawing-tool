@@ -100,6 +100,76 @@ test("does not double-schedule restart when an error is immediately followed by 
   assert.equal(harness.statuses.filter((status) => status.label === "重新连接中").length, 1);
 });
 
+test("retries again when a scheduled restart fires before the browser is ready", () => {
+  const timers = [];
+  const starts = [];
+  const recognition = {
+    start() {
+      starts.push("start");
+      if (starts.length === 2) {
+        const error = new Error("already started");
+        error.name = "InvalidStateError";
+        throw error;
+      }
+    },
+    stop() {}
+  };
+  const loop = createSpeechLoop({
+    recognition,
+    announceStatus: () => {},
+    logEntry: () => {},
+    showFallback: () => {},
+    setTimeoutFn: (callback) => {
+      timers.push(callback);
+      return timers.length;
+    },
+    clearTimeoutFn: () => {},
+    restartDelayMs: 1
+  });
+
+  loop.start();
+  loop.handleStart();
+  loop.handleEnd();
+  timers.shift()();
+
+  assert.equal(starts.length, 2);
+  assert.equal(timers.length, 1);
+
+  timers.shift()();
+  assert.equal(starts.length, 3);
+});
+
+test("pauses recognition during spoken feedback and resumes afterward", () => {
+  const harness = createHarness();
+
+  harness.loop.start();
+  harness.loop.handleStart();
+
+  assert.equal(harness.loop.pauseForOutput(), true);
+  assert.equal(harness.stops.length, 1);
+
+  harness.loop.handleEnd();
+  assert.equal(harness.timers.length, 0);
+  assert.equal(harness.statuses.at(-1).label, "反馈中");
+
+  harness.loop.resumeAfterOutput();
+  assert.equal(harness.statuses.at(-1).label, "重新连接中");
+  assert.equal(harness.timers.length, 1);
+});
+
+test("ignores recoverable speech errors caused by pausing for spoken feedback", () => {
+  const harness = createHarness();
+
+  harness.loop.start();
+  harness.loop.handleStart();
+  harness.loop.pauseForOutput();
+  harness.loop.handleError({ error: "aborted" });
+
+  assert.equal(harness.logs.length, 0);
+  assert.equal(harness.fallbackShown, false);
+  assert.equal(harness.timers.length, 0);
+});
+
 test("stops on permission errors because the browser cannot recover automatically", () => {
   const harness = createHarness();
 
