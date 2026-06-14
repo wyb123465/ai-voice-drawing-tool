@@ -115,8 +115,18 @@ function setupSpeechRecognition() {
   };
 
   recognition.onend = () => {
-    listening = false;
-    announceStatus("idle", "已暂停");
+    // Web Speech API 可能在静默或句子结束时自动停止，如果用户没主动点"暂停"，自动重启
+    if (listening) {
+      try {
+        recognition.start();
+      } catch (error) {
+        if (error.name !== "InvalidStateError") {
+          console.warn("自动重启语音识别失败:", error);
+        }
+      }
+    } else {
+      announceStatus("idle", "已暂停");
+    }
   };
 
   recognition.onerror = (event) => {
@@ -163,6 +173,7 @@ function setupControls() {
 
   stopVoice.addEventListener("click", () => {
     if (recognition && listening) {
+      listening = false;  // 先设为 false，这样 onend 就不会自动重启
       recognition.stop();
     }
     speak("语音模式已暂停");
