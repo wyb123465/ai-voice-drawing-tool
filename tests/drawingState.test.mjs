@@ -4,7 +4,7 @@ import {
   applyCommands,
   createInitialState
 } from "../src/domain/drawingState.js";
-import { parseVoiceCommand } from "../src/domain/commands.js";
+import { parseVoiceCommand, resolveClarificationAnswer } from "../src/domain/commands.js";
 
 test("adds a drawn circle to the canvas state", () => {
   const { state } = applyCommands(createInitialState(), [
@@ -211,4 +211,18 @@ test("updates focus to ordinary newly drawn shapes before pronoun edits", () => 
   assert.equal(circle.color, "#111827");
   assert.equal(square.color, "#ef4444");
   assert.equal(state.focusId, square.id);
+});
+
+test("moves an existing shape only after clarification is confirmed", () => {
+  const initial = applyCommands(createInitialState(), parseVoiceCommand("画一个三角形").commands).state;
+  const triangleBefore = initial.elements[0];
+  const unclear = parseVoiceCommand("整个三角形上去");
+  const confirmed = resolveClarificationAnswer("是的", unclear.clarification);
+
+  const { state } = applyCommands(initial, confirmed.commands);
+
+  assert.equal(state.elements.length, 1);
+  assert.equal(state.elements[0].shape, "triangle");
+  assert.equal(state.elements[0].y, triangleBefore.y - 70);
+  assert.equal(state.focusId, triangleBefore.id);
 });

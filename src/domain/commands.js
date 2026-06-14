@@ -124,6 +124,7 @@ export function parseVoiceCommand(input, context = {}) {
   const parts = splitCompoundCommand(input);
   let allowFallback = true;
   let blockedFeedback = "";
+  let clarification = null;
   const commands = [];
 
   for (const [index, part] of parts.entries()) {
@@ -131,6 +132,9 @@ export function parseVoiceCommand(input, context = {}) {
       if (command.type === "__blocked") {
         allowFallback = false;
         blockedFeedback ||= command.feedback;
+      } else if (command.type === "__clarify") {
+        allowFallback = false;
+        clarification ||= command.clarification;
       } else {
         commands.push(command);
       }
@@ -144,9 +148,12 @@ export function parseVoiceCommand(input, context = {}) {
     commands: commands.map(({ confidence, ...command }) => command),
     allowFallback,
     confidence,
+    clarification,
     feedback: commands.length
       ? `解析出 ${commands.length} 个操作`
-      : blockedFeedback || "没有识别到可执行的绘图指令。试试：画一个红色圆形、把刚才的图形变大、清空画布"
+      : clarification?.prompt ||
+        blockedFeedback ||
+        "没有识别到可执行的绘图指令。试试：画一个红色圆形、把刚才的图形变大、清空画布"
   };
 }
 
@@ -209,6 +216,11 @@ function parseSingleClause(clause, index, context) {
         confidence: 0.78
       }
     ];
+  }
+
+  const clarification = parseClarificationCandidate(text);
+  if (clarification) {
+    return [{ type: "__clarify", clarification, confidence: 0.4 }];
   }
 
   const drawShape = parseDrawShape(text);
@@ -441,6 +453,77 @@ function parseMove(text) {
   return null;
 }
 
+function parseClarificationCandidate(text) {
+  if (/(画|加|有|写|删除|删掉|移除|复制|克隆|背景|底色|导出|保存|清空|撤销|重做)/.test(text)) {
+    return null;
+  }
+  const shape = parseShape(text, "last");
+  const move = parseLooseMove(text);
+  if (!shape || !move) {
+    return null;
+  }
+  const direction = describeMove(move);
+  const shapeLabel = describeShape(shape);
+  return {
+    kind: "confirm-command",
+    prompt: `请确认：你是想把${shapeLabel}${direction}吗？请说“对”确认，或说“取消”。`,
+    commands: [
+      {
+        type: "transform",
+        target: "last",
+        shape,
+        move
+      }
+    ]
+  };
+}
+
+function parseLooseMove(text) {
+  if (/(上去|上来|往上去|向上一点|往上一点|上挪|上移一点)/.test(text)) {
+    return { dx: 0, dy: -70 };
+  }
+  if (/(下去|下来|往下去|向下一点|往下一点|下挪|下移一点)/.test(text)) {
+    return { dx: 0, dy: 70 };
+  }
+  if (/(左一点|往左一点|向左一点|左挪|左移一点)/.test(text)) {
+    return { dx: -80, dy: 0 };
+  }
+  if (/(右一点|往右一点|向右一点|右挪|右移一点)/.test(text)) {
+    return { dx: 80, dy: 0 };
+  }
+  return null;
+}
+
+function describeMove(move) {
+  if (move.dy < 0) {
+    return "向上移动";
+  }
+  if (move.dy > 0) {
+    return "向下移动";
+  }
+  if (move.dx < 0) {
+    return "向左移动";
+  }
+  return "向右移动";
+}
+
+function describeShape(shape) {
+  const labels = {
+    circle: "圆形",
+    square: "正方形",
+    rectangle: "矩形",
+    triangle: "三角形",
+    line: "直线",
+    wave: "波浪线",
+    star: "星星",
+    sun: "太阳",
+    mountain: "山",
+    tree: "树",
+    text: "文字"
+  };
+  return labels[shape] || shape;
+}
+
 function parseRelation(text) {
   if (/(右边|右侧|右面|旁边右)/.test(text)) {
     return "right-of";
@@ -592,6 +675,34 @@ function average(values) {
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function resolveClarificationAnswer(input, clarification) {
+  if (!clarification?.commands?.length) {
+    return { status: "none", commands: [], feedback: "" };
+  }
+  const answer = normalizeSpeech(input);
+  if (/(取消|不用|不要|算了|否|不是|先别)/.test(answer)) {
+    return { status: "canceled", commands: [], feedback: "已取消这次操作。" };
+  }
+  if (/(对|是|是的|确认|可以|没错|好|执行|移动)/.test(answer)) {
+    return {
+      status: "confirmed",
+      commands: cloneCommands(clarification.commands),
+      feedback: "已确认，正在执行。"
+    };
+  }
+  return { status: "unclear", commands: [], feedback: "没有听到明确确认，已取消这次操作。" };
+}
+
+function cloneCommands(commands) {
+  return commands.map((command) => {
+    const copy = { ...command };
+    if (command.move) {
+      copy.move = { ...command.move };
+    }
+    return copy;
+  });
 }
 
 export const KNOWN_SHAPES = SHAPE_ALIASES.map(([shape]) => shape);

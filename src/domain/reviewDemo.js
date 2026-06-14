@@ -15,6 +15,21 @@ const REVIEW_DEMO_STEPS = [
     command: "把背景改成浅蓝色"
   },
   {
+    id: "clarify-base",
+    label: "澄清对象",
+    command: "画一个三角形"
+  },
+  {
+    id: "clarify-question",
+    label: "澄清追问",
+    command: "整个三角形上去"
+  },
+  {
+    id: "clarify-confirm",
+    label: "确认执行",
+    command: "对"
+  },
+  {
     id: "red-circle",
     label: "红色圆",
     command: "画一个红色圆"

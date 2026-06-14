@@ -265,6 +265,23 @@ h2 {
   line-height: 1.55;
 }
 
+.clarification-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.clarification-status {
+  min-height: 44px;
+  margin: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  background: rgba(15, 118, 110, 0.06);
+  color: #344054;
+  padding: 9px 10px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .compact-action {
   min-height: 38px;
 }
@@ -443,6 +460,7 @@ textarea {
   .review-panel,
   .metrics-panel,
   .llm-panel,
+  .clarification-panel,
   .fallback-panel {
     grid-column: 1 / -1;
   }

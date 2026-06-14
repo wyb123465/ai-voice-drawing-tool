@@ -27,6 +27,8 @@ test("review demo commands cover the strongest scoring paths", () => {
   assert.match(joined, /左上角写上XEngineer/);
   assert.match(joined, /背景.*浅蓝/);
   assert.match(joined, /删除第二个圆/);
+  assert.match(joined, /三角形上去/);
+  assert.match(joined, /确认|是的|对/);
   assert.match(joined, /画一只猫/);
   assert.match(joined, /撤销/);
   assert.match(joined, /重做/);
