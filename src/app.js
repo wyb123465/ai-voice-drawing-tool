@@ -7,6 +7,7 @@ import { scheduleDemoReplay } from "./domain/demoReplay.js";
 import { getReviewDemoCommands, getReviewDemoSteps } from "./domain/reviewDemo.js";
 import { applyCommands, createInitialState } from "./domain/drawingState.js";
 import { renderCanvas } from "./domain/renderCanvas.js";
+import { createSpeechLoop } from "./domain/speechLoop.js";
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const searchParams = new URLSearchParams(window.location.search);
@@ -39,7 +40,7 @@ const clarificationStatus = document.querySelector("#clarificationStatus");
 
 let state = createInitialState();
 let recognition = null;
-let listening = false;
+let speechLoop = null;
 let llmResolver = null;
 let llmConfigUsed = null;
 let pendingClarification = null;
@@ -109,38 +110,26 @@ function setupSpeechRecognition() {
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
-  recognition.onstart = () => {
-    listening = true;
-    announceStatus("listening", "聆听中");
-  };
-
-  recognition.onend = () => {
-    // Web Speech API 可能在静默或句子结束时自动停止，如果用户没主动点"暂停"，自动重启
-    if (listening) {
-      try {
-        recognition.start();
-      } catch (error) {
-        if (error.name !== "InvalidStateError") {
-          console.warn("自动重启语音识别失败:", error);
-        }
-      }
-    } else {
-      announceStatus("idle", "已暂停");
+  speechLoop = createSpeechLoop({
+    recognition,
+    announceStatus,
+    logEntry,
+    showFallback: () => {
+      fallbackPanel.hidden = false;
     }
-  };
+  });
 
-  recognition.onerror = (event) => {
-    listening = false;
-    announceStatus("error", "语音异常");
-    fallbackPanel.hidden = false;
-    logEntry(`语音识别异常：${event.error || "unknown"}`);
-  };
+  recognition.onstart = speechLoop.handleStart;
+  recognition.onend = speechLoop.handleEnd;
+  recognition.onerror = speechLoop.handleError;
 
   recognition.onresult = (event) => {
+    speechLoop.markResult();
     let interim = "";
     for (let index = event.resultIndex; index < event.results.length; index += 1) {
       const transcript = event.results[index][0]?.transcript?.trim() || "";
       if (event.results[index].isFinal) {
+        liveTranscript.textContent = transcript;
         enqueueUtterance(transcript);
       } else {
         interim += transcript;
@@ -154,27 +143,20 @@ function setupSpeechRecognition() {
 
 function setupControls() {
   startVoice.addEventListener("click", () => {
-    if (!recognition) {
+    if (!speechLoop) {
       fallbackPanel.hidden = false;
       announceStatus("ready", "文本回放");
       return;
     }
-    if (!listening) {
-      try {
-        recognition.start();
-        speak("语音模式已启动");
-      } catch (error) {
-        if (error.name !== "InvalidStateError") {
-          throw error;
-        }
-      }
+    if (!speechLoop.isRequested()) {
+      speechLoop.start();
+      speak("语音模式已启动");
     }
   });
 
   stopVoice.addEventListener("click", () => {
-    if (recognition && listening) {
-      listening = false;  // 先设为 false，这样 onend 就不会自动重启
-      recognition.stop();
+    if (speechLoop) {
+      speechLoop.stop();
     }
     speak("语音模式已暂停");
   });
