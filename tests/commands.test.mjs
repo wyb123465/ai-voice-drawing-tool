@@ -288,3 +288,24 @@ test("asks for one confirmation before applying unclear shape movement", () => {
   assert.equal(canceled.status, "canceled");
   assert.deepEqual(canceled.commands, []);
 });
+
+test("asks for confirmation when a loose movement uses the focused pronoun", () => {
+  const result = parseVoiceCommand("把它上去", { focusId: "el-1" });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification.kind, "confirm-command");
+  assert.match(result.clarification.prompt, /当前图形/);
+  assert.match(result.clarification.prompt, /向上移动/);
+
+  const confirmed = resolveClarificationAnswer("对", result.clarification);
+  assert.equal(confirmed.status, "confirmed");
+  assert.deepEqual(confirmed.commands, [
+    {
+      type: "transform",
+      target: "focus",
+      shape: null,
+      move: { dx: 0, dy: -70 }
+    }
+  ]);
+});

@@ -226,3 +226,17 @@ test("moves an existing shape only after clarification is confirmed", () => {
   assert.equal(state.elements[0].y, triangleBefore.y - 70);
   assert.equal(state.focusId, triangleBefore.id);
 });
+
+test("moves the focused shape after confirming a pronoun-only loose movement", () => {
+  const initial = applyCommands(createInitialState(), parseVoiceCommand("画一个圆").commands).state;
+  const circleBefore = initial.elements[0];
+  const unclear = parseVoiceCommand("把它上去", { focusId: initial.focusId });
+  const confirmed = resolveClarificationAnswer("是的", unclear.clarification);
+
+  const { state } = applyCommands(initial, confirmed.commands);
+
+  assert.equal(state.elements.length, 1);
+  assert.equal(state.elements[0].shape, "circle");
+  assert.equal(state.elements[0].y, circleBefore.y - 70);
+  assert.equal(state.focusId, circleBefore.id);
+});

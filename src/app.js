@@ -244,7 +244,10 @@ async function handleUtterance(text, options = {}) {
 
   const resolver = getLlmResolver(options);
   const parsed = await resolveVoiceCommand(text, {
-    context: { lastShape: state.elements.at(-1)?.shape || null },
+    context: {
+      lastShape: state.elements.at(-1)?.shape || null,
+      focusId: state.focusId || null
+    },
     resolver
   });
 

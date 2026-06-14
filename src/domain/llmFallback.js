@@ -30,7 +30,7 @@ const ALLOWED_TYPES = new Set(["draw", "text", "background", "clear"]);
  *
  * @param {string} input 原始语音文本
  * @param {object} [options]
- * @param {object} [options.context] 传给本地解析器的上下文，如 { lastShape }
+ * @param {object} [options.context] 传给本地解析器的上下文，如 { lastShape, focusId }
  * @param {(text: string, ctx: object) => Promise<{commands: any[]}>} [options.resolver]
  *        注入的云端解析器；缺省即纯本地。
  * @param {number} [options.threshold] 触发兜底的置信度阈值。

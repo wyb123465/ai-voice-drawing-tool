@@ -218,7 +218,7 @@ function parseSingleClause(clause, index, context) {
     ];
   }
 
-  const clarification = parseClarificationCandidate(text);
+  const clarification = parseClarificationCandidate(text, context);
   if (clarification) {
     return [{ type: "__clarify", clarification, confidence: 0.4 }];
   }
@@ -453,25 +453,26 @@ function parseMove(text) {
   return null;
 }
 
-function parseClarificationCandidate(text) {
+function parseClarificationCandidate(text, context = {}) {
   if (/(画|加|有|写|删除|删掉|移除|复制|克隆|背景|底色|导出|保存|清空|撤销|重做)/.test(text)) {
     return null;
   }
-  const shape = parseShape(text, "last");
+  const parsedShape = parseShape(text, "last");
   const move = parseLooseMove(text);
-  if (!shape || !move) {
+  const usesFocusedPronoun = !parsedShape && hasFocusReference(text) && context.focusId;
+  if ((!parsedShape && !usesFocusedPronoun) || !move) {
     return null;
   }
   const direction = describeMove(move);
-  const shapeLabel = describeShape(shape);
+  const shapeLabel = usesFocusedPronoun ? "当前图形" : describeShape(parsedShape);
   return {
     kind: "confirm-command",
     prompt: `请确认：你是想把${shapeLabel}${direction}吗？请说“对”确认，或说“取消”。`,
     commands: [
       {
         type: "transform",
-        target: "last",
-        shape,
+        target: usesFocusedPronoun ? "focus" : "last",
+        shape: usesFocusedPronoun ? null : parsedShape,
         move
       }
     ]
