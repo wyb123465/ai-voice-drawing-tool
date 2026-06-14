@@ -31,6 +31,9 @@ const metricObjects = document.querySelector("#metricObjects");
 const metricHistory = document.querySelector("#metricHistory");
 const metricSource = document.querySelector("#metricSource");
 const metricLastAction = document.querySelector("#metricLastAction");
+const llmMode = document.querySelector("#llmMode");
+const llmDescription = document.querySelector("#llmDescription");
+const runLlmExample = document.querySelector("#runLlmExample");
 
 let state = createInitialState();
 let recognition = null;
@@ -46,6 +49,7 @@ setupSpeechRecognition();
 setupControls();
 setupReviewDemo();
 updateMetrics();
+updateLlmPanel();
 announceStatus("ready", SpeechRecognition ? "待启动" : "文本回放");
 if (queryMockResolverEnabled) {
   logEntry("云端兜底演示模式已开启：低置信度指令将由本地模拟响应处理，仅用于展示链路。");
@@ -175,6 +179,10 @@ function setupControls() {
       enqueueUtterance(command, { useMockFallback: true });
     }
   });
+
+  runLlmExample.addEventListener("click", () => {
+    enqueueUtterance("画一只猫", { useMockFallback: true });
+  });
 }
 
 function setupReviewDemo() {
@@ -230,6 +238,11 @@ async function handleUtterance(text, options = {}) {
   }
 
   const sourceTag = parsed.source !== "llm" ? "规则" : resolver === mockResolver ? "云端·模拟" : "云端";
+  if (sourceTag === "云端·模拟") {
+    showMockLlmMode();
+  } else if (sourceTag === "云端") {
+    updateLlmPanel();
+  }
   updateMetrics(sourceTag, parsed.commands.map(describeCommand).join("，"));
   logEntry(`${text} →（${sourceTag}）${parsed.commands.map(describeCommand).join("，")}`);
   speak(result.messages.at(-1) || parsed.feedback);
@@ -288,6 +301,27 @@ function updateMetrics(source = "待执行", lastAction = "等待指令") {
   metricHistory.textContent = String(state.history.length);
   metricSource.textContent = source;
   metricLastAction.textContent = lastAction;
+}
+
+function updateLlmPanel() {
+  const config = typeof window !== "undefined" ? window.__VOICE_LLM__ : null;
+  if (config?.apiKey) {
+    llmMode.textContent = `真实接口 · ${config.model || "OpenAI 兼容模型"}`;
+    llmDescription.textContent = "检测到 window.__VOICE_LLM__ 配置。低置信度指令会请求云端解析，结果仍会先经过白名单校验。";
+    return;
+  }
+  if (queryMockResolverEnabled) {
+    llmMode.textContent = "模拟兜底 · 不发网络请求";
+    llmDescription.textContent = "当前 URL 启用了 llmdemo=1，会用本地模拟响应展示 LLM 兜底链路。";
+    return;
+  }
+  llmMode.textContent = "规则优先 · 默认离线";
+  llmDescription.textContent = "常见指令由本地规则解析；点击下方示例可用本地模拟响应展示 LLM 兜底效果。";
+}
+
+function showMockLlmMode() {
+  llmMode.textContent = "模拟兜底 · 本次由 AI 链路处理";
+  llmDescription.textContent = "这次开放表达没有走普通规则，而是通过本地模拟 resolver 展示 LLM 兜底，再经白名单校验后绘制。";
 }
 
 function speak(text) {
