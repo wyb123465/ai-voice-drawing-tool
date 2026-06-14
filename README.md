@@ -1,6 +1,6 @@
 # AI 语音绘图工具
 
-[![Tests](https://img.shields.io/badge/tests-54%20passed-success)](https://github.com/wyb123465/ai-voice-drawing-tool)
+[![Tests](https://img.shields.io/badge/tests-55%20passed-success)](https://github.com/wyb123465/ai-voice-drawing-tool)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
 
