@@ -1,6 +1,6 @@
 # AI 语音绘图工具
 
-[![Tests](https://img.shields.io/badge/tests-44%20passed-success)](https://github.com/wyb123465/ai-voice-drawing-tool)
+[![Tests](https://img.shields.io/badge/tests-47%20passed-success)](https://github.com/wyb123465/ai-voice-drawing-tool)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
 
@@ -24,7 +24,7 @@
 - 🛡️ **未知对象阻断**："把猫变大"返回明确提示，不会误操作最后对象
 - 🔒 **白名单校验**：云端开放输出必须过形状/颜色/位置白名单，非法值就近回退默认
 - 🎬 **演示模式**：`?llmdemo=1` 无需真密钥即可演示完整云端链路
-- 🧪 **44 个测试全过**：覆盖解析、状态、兜底、网络异常等关键路径
+- 🧪 **47 个测试全过**：覆盖解析、状态、兜底、网络异常等关键路径
 - 📦 **零依赖**：纯前端，无运行时依赖，测试用 Node.js 内置 test runner
 - 🏗️ **企业级架构**：命令解析、状态引擎、渲染器完全分离，可测试、可复现
 
@@ -38,6 +38,8 @@ npm run serve
 打开 [http://localhost:4173/](http://localhost:4173/)。
 
 推荐使用 Chrome 或 Edge。浏览器需要一次点击来触发麦克风授权；进入语音模式后，绘图动作都通过语音完成。若浏览器不支持 Web Speech API，页面会显示文本回放区，便于评审复现指令解析与绘图效果。
+
+页面右侧提供“运行评审演示”和逐步脚本按钮，可直接执行复合场景、文字定位、背景控制、序号选择、云端兜底模拟、撤销重做和导出链路。运行看板会实时显示对象数、历史步数、解析来源和最近动作。
 
 本地自动化检查可打开 [http://localhost:4173/?replay=1](http://localhost:4173/?replay=1)，强制显示文本回放区。
 
@@ -86,9 +88,9 @@ http://localhost:4173/?replay=1&demo=画一条黑色波浪线|画一个蓝色矩
 - 安全校验：白名单过滤、输入校验、密钥隔离
 
 **项目规模**
-- 约 2500 行代码（含测试）
-- 44 个测试用例，100% 通过
-- 15 个模块，零运行时依赖
+- 约 2600 行代码（含测试）
+- 47 个测试用例，100% 通过
+- 16 个模块，零运行时依赖
 
 ## 🎯 支持的语音指令
 
@@ -178,6 +180,7 @@ src/styles.css
 src/domain/commands.js
 src/domain/drawingState.js
 src/domain/demoReplay.js
+src/domain/reviewDemo.js
 src/domain/renderCanvas.js
 src/domain/llmFallback.js
 src/llm/openaiResolver.js
@@ -187,6 +190,7 @@ tests/drawingState.test.mjs
 tests/llmFallback.test.mjs
 tests/openaiResolver.test.mjs
 tests/mockResolver.test.mjs
+tests/reviewDemo.test.mjs
 docs/design.md
 docs/submission.md
 docs/superpowers/plans/2026-06-12-voice-drawing-tool.md
