@@ -202,7 +202,7 @@ function parseSingleClause(clause, index, context) {
   }
 
   if (/(变大|放大|变小|缩小|移动|移到|放到|挪|旋转|转|换成|改成|变成)/.test(text) && !/(背景|底色)/.test(text)) {
-    const command = parseTransform(text);
+    const command = parseTransform(text, context);
     return [blockIfAmbiguousEdit(text, command)];
   }
 
@@ -266,7 +266,7 @@ function parseDrawShape(text) {
   return parseShape(text, "last");
 }
 
-function parseTransform(text) {
+function parseTransform(text, context = {}) {
   const target = resolveTarget(text);
   const command = {
     type: "transform",
@@ -314,6 +314,10 @@ function parseTransform(text) {
     command.position = position;
   }
 
+  if (isUnavailablePresentShape(command.shape, context)) {
+    return createUnavailableShapeBlock(command.shape);
+  }
+
   return command;
 }
 
@@ -336,6 +340,9 @@ function parseObjectCommand(type, text, confidence) {
 }
 
 function blockIfAmbiguousEdit(text, command) {
+  if (command.type === "__blocked") {
+    return command;
+  }
   if (!isAmbiguousEditTarget(text, command)) {
     return command;
   }
@@ -492,10 +499,14 @@ function blockUnavailableClarificationTarget(text, context = {}) {
   if (!parsedShape || !parseLooseMove(text) || !isUnavailablePresentShape(parsedShape, context)) {
     return null;
   }
+  return createUnavailableShapeBlock(parsedShape);
+}
+
+function createUnavailableShapeBlock(shape) {
   return {
     type: "__blocked",
     confidence: 0.95,
-    feedback: `画布上还没有${describeShape(parsedShape)}，请先画一个${describeShape(parsedShape)}。`
+    feedback: `画布上还没有${describeShape(shape)}，请先画一个${describeShape(shape)}。`
   };
 }
 

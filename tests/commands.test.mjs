@@ -347,6 +347,30 @@ test("does not clarify or draw when a loose movement names a missing shape", () 
   assert.equal(result.clarification, null);
 });
 
+test("blocks direct scaling when it names a missing shape", () => {
+  const result = parseVoiceCommand("把这个圆变大", {
+    focusId: "el-1",
+    presentShapes: ["triangle"]
+  });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification, null);
+  assert.match(result.feedback, /画布上还没有圆形/);
+});
+
+test("blocks direct recoloring when it names a missing shape", () => {
+  const result = parseVoiceCommand("把这个圆换成红色", {
+    focusId: "el-1",
+    presentShapes: ["triangle"]
+  });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification, null);
+  assert.match(result.feedback, /画布上还没有圆形/);
+});
+
 test("still clarifies when a loose movement names a present shape", () => {
   const result = parseVoiceCommand("把这个圆上去", {
     focusId: "el-1",
