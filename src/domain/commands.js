@@ -296,7 +296,7 @@ function parseTransform(text) {
       command.colorFilter = filterColor;
     }
   }
-  const move = parseMove(text);
+  const move = parseMove(text) || parseLooseMove(text);
   if (move) {
     command.move = move;
   }
@@ -459,12 +459,12 @@ function parseClarificationCandidate(text, context = {}) {
   }
   const parsedShape = parseShape(text, "last");
   const move = parseLooseMove(text);
-  const usesFocusedPronoun = !parsedShape && hasFocusReference(text) && context.focusId;
+  const usesFocusedPronoun = hasFocusReference(text) && context.focusId;
   if ((!parsedShape && !usesFocusedPronoun) || !move) {
     return null;
   }
   const direction = describeMove(move);
-  const shapeLabel = usesFocusedPronoun ? "当前图形" : describeShape(parsedShape);
+  const shapeLabel = parsedShape ? describeShape(parsedShape) : "当前图形";
   return {
     kind: "confirm-command",
     prompt: `请确认：你是想把${shapeLabel}${direction}吗？请说“对”确认，或说“取消”。`,
@@ -472,7 +472,7 @@ function parseClarificationCandidate(text, context = {}) {
       {
         type: "transform",
         target: usesFocusedPronoun ? "focus" : "last",
-        shape: usesFocusedPronoun ? null : parsedShape,
+        shape: parsedShape || null,
         move
       }
     ]

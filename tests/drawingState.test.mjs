@@ -240,3 +240,27 @@ test("moves the focused shape after confirming a pronoun-only loose movement", (
   assert.equal(state.elements[0].y, circleBefore.y - 70);
   assert.equal(state.focusId, circleBefore.id);
 });
+
+test("moves the focused matching shape when a loose clarification includes pronoun and shape", () => {
+  let state = createInitialState();
+  state = applyCommands(state, parseVoiceCommand("画一个圆").commands).state;
+  state = applyCommands(state, parseVoiceCommand("画一个圆").commands).state;
+  state = applyCommands(state, parseVoiceCommand("把第一个圆变大一点").commands).state;
+  state = applyCommands(
+    state,
+    parseVoiceCommand("在它右边画三角形", {
+      focusId: state.focusId,
+      lastShape: state.elements.at(-1)?.shape || null
+    }).commands
+  ).state;
+  const firstCircleBefore = state.elements[0];
+  const secondCircleBefore = state.elements[1];
+  const unclear = parseVoiceCommand("把这个圆上去", { focusId: state.focusId });
+  const confirmed = resolveClarificationAnswer("是的", unclear.clarification);
+
+  const result = applyCommands(state, confirmed.commands).state;
+
+  assert.equal(result.elements[0].y, firstCircleBefore.y - 70);
+  assert.equal(result.elements[1].y, secondCircleBefore.y);
+  assert.equal(result.focusId, firstCircleBefore.id);
+});

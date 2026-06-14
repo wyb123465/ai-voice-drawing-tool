@@ -96,11 +96,17 @@ test("parses natural transform and canvas control commands", () => {
   const transform = parseVoiceCommand("把刚才的圆变大一点").commands[0];
   const clear = parseVoiceCommand("清空画布").commands[0];
   const background = parseVoiceCommand("把背景改成浅蓝色").commands[0];
+  const focusedLooseMove = parseVoiceCommand("把那个圆挪上去", { focusId: "el-1" }).commands[0];
 
   assert.equal(transform.type, "transform");
   assert.equal(transform.target, "last");
   assert.equal(transform.shape, "circle");
   assert.ok(transform.scale > 1);
+
+  assert.equal(focusedLooseMove.type, "transform");
+  assert.equal(focusedLooseMove.target, "focus");
+  assert.equal(focusedLooseMove.shape, "circle");
+  assert.deepEqual(focusedLooseMove.move, { dx: 0, dy: -70 });
 
   assert.equal(clear.type, "clear");
 
@@ -305,6 +311,26 @@ test("asks for confirmation when a loose movement uses the focused pronoun", () 
       type: "transform",
       target: "focus",
       shape: null,
+      move: { dx: 0, dy: -70 }
+    }
+  ]);
+});
+
+test("keeps explicit-shape loose movement anchored to focus when a pronoun is present", () => {
+  const result = parseVoiceCommand("把这个圆上去", { focusId: "el-1" });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification.kind, "confirm-command");
+  assert.match(result.clarification.prompt, /圆形/);
+
+  const confirmed = resolveClarificationAnswer("对", result.clarification);
+  assert.equal(confirmed.status, "confirmed");
+  assert.deepEqual(confirmed.commands, [
+    {
+      type: "transform",
+      target: "focus",
+      shape: "circle",
       move: { dx: 0, dy: -70 }
     }
   ]);
