@@ -27,8 +27,38 @@
       </section>
 
       <aside class="control-rail" aria-label="voice controls">
-        <button id="startVoice" class="primary-action" type="button">启动语音</button>
-        <button id="stopVoice" class="icon-action" type="button" aria-label="Stop voice mode">停止</button>
+        <div class="action-stack" aria-label="primary actions">
+          <button id="startVoice" class="primary-action" type="button">启动语音</button>
+          <button id="runReviewDemo" class="secondary-action" type="button">运行评审演示</button>
+          <button id="stopVoice" class="icon-action" type="button" aria-label="Stop voice mode">停止</button>
+        </div>
+
+        <section class="panel metrics-panel" aria-labelledby="metricsTitle">
+          <h2 id="metricsTitle">运行看板</h2>
+          <dl class="metrics-grid" aria-live="polite">
+            <div>
+              <dt>对象</dt>
+              <dd id="metricObjects">0</dd>
+            </div>
+            <div>
+              <dt>历史</dt>
+              <dd id="metricHistory">0</dd>
+            </div>
+            <div>
+              <dt>来源</dt>
+              <dd id="metricSource">待执行</dd>
+            </div>
+            <div>
+              <dt>最近</dt>
+              <dd id="metricLastAction">等待指令</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="panel review-panel" aria-labelledby="reviewDemoTitle">
+          <h2 id="reviewDemoTitle">评审脚本</h2>
+          <ol id="reviewDemoSteps" class="review-steps"></ol>
+        </section>
 
         <section class="panel">
           <h2>实时语音</h2>
@@ -36,7 +66,8 @@
         </section>
 
         <section class="panel fallback-panel" id="fallbackPanel" hidden>
-          <h2>文本回放</h2>
+          <h2 id="fallbackTitle">文本回放</h2>
+          <label class="field-label" for="fallbackInput">输入指令</label>
           <textarea id="fallbackInput" rows="4" autocomplete="off" spellcheck="false"></textarea>
           <button id="runFallback" class="secondary-action" type="button">执行</button>
         </section>

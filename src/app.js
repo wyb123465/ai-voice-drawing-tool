@@ -3,6 +3,7 @@ import { createOpenAiResolver } from "./llm/openaiResolver.js";
 import { createMockLlmResolver } from "./llm/mockResolver.js";
 import { parseDemoScript } from "./domain/demoScript.js";
 import { scheduleDemoReplay } from "./domain/demoReplay.js";
+import { getReviewDemoCommands, getReviewDemoSteps } from "./domain/reviewDemo.js";
 import { applyCommands, createInitialState } from "./domain/drawingState.js";
 import { renderCanvas } from "./domain/renderCanvas.js";
 
@@ -11,7 +12,8 @@ const searchParams = new URLSearchParams(window.location.search);
 const replayMode = searchParams.has("replay");
 const demoCommands = parseDemoScript(searchParams.get("demo"));
 // ?llmdemo=1：无密钥演示兜底链路，使用本地模拟响应，日志会标注"云端·模拟"。
-const mockResolver = searchParams.has("llmdemo") ? createMockLlmResolver() : null;
+const mockResolver = createMockLlmResolver();
+const queryMockResolverEnabled = searchParams.has("llmdemo");
 
 const canvas = document.querySelector("#drawingCanvas");
 const commandLog = document.querySelector("#commandLog");
@@ -19,10 +21,16 @@ const fallbackPanel = document.querySelector("#fallbackPanel");
 const fallbackInput = document.querySelector("#fallbackInput");
 const liveTranscript = document.querySelector("#liveTranscript");
 const runFallback = document.querySelector("#runFallback");
+const runReviewDemo = document.querySelector("#runReviewDemo");
+const reviewDemoSteps = document.querySelector("#reviewDemoSteps");
 const startVoice = document.querySelector("#startVoice");
 const stopVoice = document.querySelector("#stopVoice");
 const voiceStatus = document.querySelector("#voiceStatus");
 const voiceStatusWrap = document.querySelector(".voice-status");
+const metricObjects = document.querySelector("#metricObjects");
+const metricHistory = document.querySelector("#metricHistory");
+const metricSource = document.querySelector("#metricSource");
+const metricLastAction = document.querySelector("#metricLastAction");
 
 let state = createInitialState();
 let recognition = null;
@@ -36,8 +44,10 @@ let utteranceQueue = Promise.resolve();
 renderCanvas(canvas, state);
 setupSpeechRecognition();
 setupControls();
+setupReviewDemo();
+updateMetrics();
 announceStatus("ready", SpeechRecognition ? "待启动" : "文本回放");
-if (mockResolver) {
+if (queryMockResolverEnabled) {
   logEntry("云端兜底演示模式已开启：低置信度指令将由本地模拟响应处理，仅用于展示链路。");
 }
 
@@ -48,8 +58,8 @@ window.voiceDrawingDemo = {
 
 scheduleDemoReplay(demoCommands, enqueueUtterance);
 
-function enqueueUtterance(text) {
-  const run = utteranceQueue.then(() => handleUtterance(text));
+function enqueueUtterance(text, options = {}) {
+  const run = utteranceQueue.then(() => handleUtterance(text, options));
   utteranceQueue = run.catch((error) => {
     console.error("指令处理失败：", error);
   });
@@ -57,7 +67,7 @@ function enqueueUtterance(text) {
 }
 
 // 每次取用时按当前 window.__VOICE_LLM__ 重新判断，允许打开页面后再在控制台注入配置。
-function getLlmResolver() {
+function getLlmResolver(options = {}) {
   const config = typeof window !== "undefined" ? window.__VOICE_LLM__ : null;
   if (config && config.apiKey) {
     if (config !== llmConfigUsed) {
@@ -73,7 +83,7 @@ function getLlmResolver() {
   }
   llmConfigUsed = null;
   llmResolver = null;
-  return mockResolver;
+  return options.useMockFallback || queryMockResolverEnabled ? mockResolver : null;
 }
 
 function setupSpeechRecognition() {
@@ -158,15 +168,47 @@ function setupControls() {
       fallbackInput.value = "";
     }
   });
+
+  runReviewDemo.addEventListener("click", () => {
+    logEntry("评审演示开始：将按脚本依次执行命令。");
+    for (const command of getReviewDemoCommands()) {
+      enqueueUtterance(command, { useMockFallback: true });
+    }
+  });
 }
 
-async function handleUtterance(text) {
+function setupReviewDemo() {
+  const fragment = document.createDocumentFragment();
+  for (const step of getReviewDemoSteps()) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    const label = document.createElement("span");
+    const command = document.createElement("span");
+
+    button.type = "button";
+    button.className = "review-step";
+    label.className = "review-step-label";
+    command.className = "review-step-command";
+    label.textContent = step.label;
+    command.textContent = step.command;
+
+    button.append(label, command);
+    button.addEventListener("click", () => {
+      enqueueUtterance(step.command, { useMockFallback: true });
+    });
+    item.append(button);
+    fragment.append(item);
+  }
+  reviewDemoSteps.append(fragment);
+}
+
+async function handleUtterance(text, options = {}) {
   if (!text) {
     return;
   }
 
   liveTranscript.textContent = text;
-  const resolver = getLlmResolver();
+  const resolver = getLlmResolver(options);
   const parsed = await resolveVoiceCommand(text, {
     context: { lastShape: state.elements.at(-1)?.shape || null },
     resolver
@@ -174,6 +216,7 @@ async function handleUtterance(text) {
 
   if (!parsed.commands.length) {
     logEntry(`未执行：${text}`);
+    updateMetrics("未执行", text);
     speak(parsed.feedback || "这句还不能变成绘图动作");
     return;
   }
@@ -187,6 +230,7 @@ async function handleUtterance(text) {
   }
 
   const sourceTag = parsed.source !== "llm" ? "规则" : resolver === mockResolver ? "云端·模拟" : "云端";
+  updateMetrics(sourceTag, parsed.commands.map(describeCommand).join("，"));
   logEntry(`${text} →（${sourceTag}）${parsed.commands.map(describeCommand).join("，")}`);
   speak(result.messages.at(-1) || parsed.feedback);
 }
@@ -237,6 +281,13 @@ function logEntry(text) {
 function announceStatus(stateName, label) {
   voiceStatus.textContent = label;
   voiceStatusWrap.dataset.state = stateName;
+}
+
+function updateMetrics(source = "待执行", lastAction = "等待指令") {
+  metricObjects.textContent = String(state.elements.length);
+  metricHistory.textContent = String(state.history.length);
+  metricSource.textContent = source;
+  metricLastAction.textContent = lastAction;
 }
 
 function speak(text) {
