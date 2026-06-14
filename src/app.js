@@ -251,6 +251,7 @@ async function handleUtterance(text, options = {}) {
 function describeCommand(command) {
   const shapeLabels = {
     circle: "圆形",
+    square: "正方形",
     rectangle: "矩形",
     triangle: "三角形",
     line: "直线",

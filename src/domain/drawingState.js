@@ -3,6 +3,7 @@ const CANVAS_HEIGHT = 800;
 
 const SHAPE_SIZE = {
   circle: { width: 150, height: 150 },
+  square: { width: 150, height: 150 },
   rectangle: { width: 220, height: 140 },
   triangle: { width: 180, height: 160 },
   line: { width: 240, height: 8 },
@@ -22,6 +23,7 @@ export function createInitialState() {
     elements: [],
     history: [],
     future: [],
+    focusId: null,
     idCounter: 1
   };
 }
@@ -43,7 +45,9 @@ export function applyCommands(state, commands) {
 export function applyCommand(state, command) {
   switch (command.type) {
     case "draw":
-      return addElement(state, createElement(state, command), "已添加图形");
+      return addElement(state, createElement(state, command), "已添加图形", {
+        preserveFocus: command.preserveFocus
+      });
     case "text":
       return addElement(state, createElement(state, { ...command, shape: "text" }), "已添加文字");
     case "background":
@@ -60,6 +64,7 @@ export function applyCommand(state, command) {
         state: {
           ...pushHistory(state),
           elements: [],
+          focusId: null,
           future: []
         },
         message: "画布已清空"
@@ -85,6 +90,9 @@ export function findAnchorElement(state, command) {
   if (!state.elements.length) {
     return null;
   }
+  if (command.anchorShape === "focus") {
+    return findFocusElement(state) || state.elements.at(-1);
+  }
   if (!command.anchorShape || command.anchorShape === "last") {
     if (command.clusterId) {
       const outsideCluster = [...state.elements].reverse().find((element) => element.clusterId !== command.clusterId);
@@ -97,11 +105,13 @@ export function findAnchorElement(state, command) {
   return [...state.elements].reverse().find((element) => element.shape === command.anchorShape) || state.elements.at(-1);
 }
 
-function addElement(state, element, message) {
+function addElement(state, element, message, options = {}) {
+  const focusId = options.preserveFocus && findFocusElement(state) ? state.focusId : element.id;
   return {
     state: {
       ...pushHistory(state),
       elements: [...state.elements, element],
+      focusId,
       idCounter: state.idCounter + 1,
       future: []
     },
@@ -219,6 +229,7 @@ function transformElement(state, command) {
     state: {
       ...pushHistory(state),
       elements,
+      focusId: elements[index].id,
       future: []
     },
     message: "已调整图形"
@@ -230,11 +241,13 @@ function deleteElement(state, command) {
   if (index < 0) {
     return { state, message: "没有可删除的图形" };
   }
+  const elements = state.elements.filter((_, elementIndex) => elementIndex !== index);
 
   return {
     state: {
       ...pushHistory(state),
-      elements: state.elements.filter((_, elementIndex) => elementIndex !== index),
+      elements,
+      focusId: resolveFocusAfterDelete(state, index, elements),
       future: []
     },
     message: "已删除图形"
@@ -258,6 +271,7 @@ function duplicateElement(state, command) {
     state: {
       ...pushHistory(state),
       elements: [...state.elements, clone],
+      focusId: clone.id,
       idCounter: state.idCounter + 1,
       future: []
     },
@@ -315,6 +329,13 @@ function findTargetIndex(state, command) {
     return -1;
   }
 
+  if (command.target === "focus") {
+    const focusIndex = state.elements.findIndex((element) => element.id === state.focusId);
+    if (focusIndex >= 0 && matches(focusIndex)) {
+      return focusIndex;
+    }
+  }
+
   for (let index = state.elements.length - 1; index >= 0; index -= 1) {
     if (matches(index)) {
       return index;
@@ -366,8 +387,21 @@ function snapshot(state) {
   return {
     background: state.background,
     elements: state.elements.map((element) => ({ ...element })),
+    focusId: state.focusId || null,
     idCounter: state.idCounter
   };
+}
+
+function findFocusElement(state) {
+  return state.elements.find((element) => element.id === state.focusId) || null;
+}
+
+function resolveFocusAfterDelete(state, deletedIndex, elements) {
+  const deletedElement = state.elements[deletedIndex];
+  if (!deletedElement || deletedElement.id !== state.focusId) {
+    return findFocusElement({ ...state, elements })?.id || null;
+  }
+  return elements[Math.min(deletedIndex, elements.length - 1)]?.id || elements.at(-1)?.id || null;
 }
 
 function clamp(value, min, max) {

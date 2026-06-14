@@ -25,6 +25,34 @@ test("parses a simple red circle drawing command", () => {
   assert.ok(result.confidence >= 0.7);
 });
 
+test("tolerates common ASR homophones for shapes and colors", () => {
+  const gardenCircle = parseVoiceCommand("画个园").commands[0];
+  const yuanCircle = parseVoiceCommand("画个元").commands[0];
+  const twoYuanCircles = parseVoiceCommand("画两个元");
+  const blueCircle = parseVoiceCommand("画一个兰色圆").commands[0];
+  const orangeSquare = parseVoiceCommand("画一个桔色方块").commands[0];
+
+  assert.equal(gardenCircle.shape, "circle");
+  assert.equal(yuanCircle.shape, "circle");
+  assert.equal(twoYuanCircles.commands.length, 2);
+  assert.deepEqual(twoYuanCircles.commands.map((command) => command.shape), ["circle", "circle"]);
+  assert.equal(blueCircle.color, "#2563eb");
+  assert.equal(orangeSquare.shape, "square");
+  assert.equal(orangeSquare.color, "#f59e0b");
+});
+
+test("keeps ASR homophone correction conservative around real words", () => {
+  const unknownYuanbao = parseVoiceCommand("画一个元宝");
+  const unknownGarden = parseVoiceCommand("画一个花园");
+  const deleteElement = parseVoiceCommand("删除元素").commands[0];
+  const text = parseVoiceCommand("写上元旦快乐").commands[0];
+
+  assert.equal(unknownYuanbao.commands.length, 0);
+  assert.equal(unknownGarden.commands.length, 0);
+  assert.equal(deleteElement.shape, null);
+  assert.equal(text.text, "元旦快乐");
+});
+
 test("decomposes a scene request into drawable primitives", () => {
   const result = parseVoiceCommand("画一个太阳，下面有两座山，山前面有一棵树");
   const shapes = result.commands.map((command) => command.shape);
@@ -42,6 +70,25 @@ test("parses relative placement against an existing shape", () => {
   assert.equal(result.commands[0].color, "#2563eb");
   assert.equal(result.commands[0].relation, "right-of");
   assert.equal(result.commands[0].anchorShape, "circle");
+});
+
+test("parses square separately from wide rectangles", () => {
+  const square = parseVoiceCommand("画一个正方形").commands[0];
+  const rectangle = parseVoiceCommand("画一个长方形").commands[0];
+
+  assert.equal(square.shape, "square");
+  assert.equal(rectangle.shape, "rectangle");
+});
+
+test("uses focus targets for pronouns and pronoun relation anchors", () => {
+  const result = parseVoiceCommand("在它右边画一个正方形，然后把它改成红色");
+
+  assert.equal(result.commands[0].type, "draw");
+  assert.equal(result.commands[0].shape, "square");
+  assert.equal(result.commands[0].anchorShape, "focus");
+  assert.equal(result.commands[0].preserveFocus, true);
+  assert.equal(result.commands[1].type, "transform");
+  assert.equal(result.commands[1].target, "focus");
 });
 
 test("parses natural transform and canvas control commands", () => {
@@ -207,10 +254,10 @@ test("blocks ambiguous edits for unknown semantic objects", () => {
   assert.equal(directionOnlyMove.commands[0].move.dx, 80);
 
   assert.equal(pronounDelete.commands[0].type, "delete");
-  assert.equal(pronounDelete.commands[0].target, "last");
+  assert.equal(pronounDelete.commands[0].target, "focus");
 
   assert.equal(demonstrativeGenericDelete.commands[0].type, "delete");
-  assert.equal(demonstrativeGenericDelete.commands[0].target, "last");
+  assert.equal(demonstrativeGenericDelete.commands[0].target, "focus");
 
   assert.equal(explicitLast.commands[0].type, "transform");
   assert.equal(explicitLast.commands[0].target, "last");

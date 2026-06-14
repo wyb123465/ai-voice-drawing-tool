@@ -23,6 +23,9 @@ export function renderCanvas(canvas, state) {
     context.shadowBlur = 18;
     context.shadowOffsetY = 8;
     drawElement(context, element);
+    if (element.id && element.id === state.focusId) {
+      drawFocusRing(context, element);
+    }
     context.restore();
   }
 }
@@ -39,6 +42,11 @@ function drawElement(context, element) {
 
   if (element.shape === "rectangle") {
     roundedRect(context, -width / 2, -height / 2, width, height, 16);
+    context.fill();
+  }
+
+  if (element.shape === "square") {
+    roundedRect(context, -width / 2, -height / 2, width, height, 14);
     context.fill();
   }
 
@@ -82,6 +90,19 @@ function drawElement(context, element) {
   if (element.shape === "text") {
     drawText(context, element);
   }
+}
+
+function drawFocusRing(context, element) {
+  const width = element.width + 24;
+  const height = element.height + 24;
+  context.save();
+  context.shadowBlur = 0;
+  context.strokeStyle = "rgba(15, 118, 110, 0.78)";
+  context.lineWidth = 5;
+  context.setLineDash([10, 8]);
+  roundedRect(context, -width / 2, -height / 2, width, height, 18);
+  context.stroke();
+  context.restore();
 }
 
 function drawPaperGrain(context, canvas) {

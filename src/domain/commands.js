@@ -14,12 +14,15 @@ const COLOR_ALIASES = [
   ["天蓝色", "#7dd3fc"],
   ["深蓝色", "#1d4ed8"],
   ["蓝色", "#2563eb"],
+  ["兰色", "#2563eb"],
   ["红色", "#ef4444"],
   ["绿色", "#16a34a"],
   ["深绿色", "#15803d"],
   ["浅绿色", "#bbf7d0"],
   ["黄色", "#eab308"],
   ["橙色", "#f59e0b"],
+  ["橘色", "#f59e0b"],
+  ["桔色", "#f59e0b"],
   ["棕色", "#92400e"],
   ["咖啡色", "#92400e"],
   ["紫色", "#7c3aed"],
@@ -30,9 +33,10 @@ const COLOR_ALIASES = [
 ];
 
 const SHAPE_ALIASES = [
-  ["rectangle", ["长方形", "矩形", "正方形", "方块", "盒子"]],
+  ["square", ["正方形", "方块"]],
+  ["rectangle", ["长方形", "矩形", "盒子"]],
   ["triangle", ["三角形", "三角"]],
-  ["circle", ["圆形", "圆圈", "圆"]],
+  ["circle", ["圆形", "圆圈", "圆圆", "圆"]],
   ["mountain", ["山峰", "高山", "山"]],
   ["sun", ["太阳", "日头"]],
   ["tree", ["树木", "大树", "树"]],
@@ -43,6 +47,7 @@ const SHAPE_ALIASES = [
 
 const DEFAULT_COLORS = {
   circle: "#111827",
+  square: "#111827",
   rectangle: "#111827",
   triangle: "#111827",
   line: "#111827",
@@ -216,6 +221,7 @@ function parseSingleClause(clause, index, context) {
   const anchorShape = parseAnchorShape(text, relation, context);
   const color = parseColor(text) || DEFAULT_COLORS[drawShape] || "#111827";
   const position = parsePosition(text) || defaultPositionFor(drawShape, index);
+  const preserveFocus = anchorShape === "focus";
 
   return Array.from({ length: count }, (_, offsetIndex) => ({
     type: "draw",
@@ -224,6 +230,7 @@ function parseSingleClause(clause, index, context) {
     position,
     relation,
     anchorShape,
+    preserveFocus,
     clusterIndex: offsetIndex,
     clusterCount: count,
     clusterId: `clause-${index}`,
@@ -391,6 +398,9 @@ function resolveTarget(text) {
   if (/(第一个|最初|最早|最先|开头那个|一开始)/.test(text)) {
     return "first";
   }
+  if (/(它|这个|那个|这一个|那一个)/.test(text)) {
+    return "focus";
+  }
   return "last";
 }
 
@@ -467,7 +477,14 @@ function parseAnchorShape(text, relation, context) {
   if (anchor) {
     return anchor;
   }
+  if (hasFocusReference(beforeRelation)) {
+    return "focus";
+  }
   return context.lastShape || "last";
+}
+
+function hasFocusReference(text) {
+  return /(它|这个|那个|这一个|那一个)/.test(text);
 }
 
 function parsePosition(text) {
@@ -503,7 +520,8 @@ function parsePosition(text) {
 
 function parseCount(text, shape) {
   const shapeTerms = SHAPE_ALIASES.find(([name]) => name === shape)?.[1] || [];
-  const shapePattern = shapeTerms.map(escapeRegex).join("|");
+  const asrTerms = shape === "circle" ? ["园", "元"] : [];
+  const shapePattern = [...shapeTerms, ...asrTerms].map(escapeRegex).join("|");
   const match = text.match(new RegExp(`([一二两三四五六七八九十\\d]+)[个座棵颗条只朵]?(${shapePattern})`));
   if (!match) {
     return 1;
@@ -524,7 +542,23 @@ function findShapeMatches(text) {
       }
     }
   }
+  matches.push(...findAsrCircleMatches(text));
   return matches.sort((a, b) => a.index - b.index || b.alias.length - a.alias.length);
+}
+
+function findAsrCircleMatches(text) {
+  const matches = [];
+  const pattern = /(^|画|加|来|有|把|让|在|第|个|只|条|座|棵|颗|朵|一|二|两|三|四|五|六|七|八|九|十|\d)(园|元)(?=$|形|圈|右|左|上|下|前|后|旁|边|变|改|换|删|移|挪|旋|转|放|缩|大|小|复|克)/g;
+  let match = pattern.exec(text);
+  while (match) {
+    matches.push({
+      shape: "circle",
+      alias: match[2],
+      index: match.index + match[1].length
+    });
+    match = pattern.exec(text);
+  }
+  return matches;
 }
 
 function extractLabelText(clause) {
