@@ -8,9 +8,9 @@
 
 **部署地址**：[https://wyb123465.github.io/ai-voice-drawing-tool/](https://wyb123465.github.io/ai-voice-drawing-tool/)（推送到 `main` 且 GitHub Pages Actions 成功后可访问）
 
-**评审材料**：[提交说明](./docs/submission.md) · [设计文档](./docs/design.md) · [文本回放](https://wyb123465.github.io/ai-voice-drawing-tool/?replay=1)
+**评审材料**：[提交说明](./docs/submission.md) · [设计文档](./docs/design.md) · [文本回放](https://wyb123465.github.io/ai-voice-drawing-tool/?replay=1) · [Demo 视频](https://www.bilibili.com/video/BV1b6JA63EbK/)
 
-**Demo 视频**：待录制后替换为 B 站或云盘链接（提交前必须补齐）。
+**Demo 视频**：[B 站：AI 语音绘图工具演示](https://www.bilibili.com/video/BV1b6JA63EbK/)
 
 ## 用户价值
 
@@ -219,7 +219,7 @@ scripts/serve.mjs
 
 - 公开 GitHub/Gitee 仓库。
 - README 文档。
-- Demo 视频链接：录制完成后替换本 README 顶部占位文本，并填写到提交平台。
+- Demo 视频链接：[B 站：AI 语音绘图工具演示](https://www.bilibili.com/video/BV1b6JA63EbK/)，并填写到提交平台。
 - 设计文档：[docs/design.md](./docs/design.md)。
 - 提交说明：[docs/submission.md](./docs/submission.md)。
 - 运行和测试方式：`npm run serve`、`npm test`。

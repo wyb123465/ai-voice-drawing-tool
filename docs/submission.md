@@ -6,7 +6,7 @@
 - 项目名称：AI 语音绘图工具 / 声绘工作台。
 - 核心目标：用户不使用鼠标或键盘，只通过语音完成绘图创作、对象编辑、撤销重做、清空和导出。
 - 部署地址：https://wyb123465.github.io/ai-voice-drawing-tool/ （推送到 `main` 且 GitHub Pages Actions 成功后可访问）
-- Demo 视频：待录制后替换为 B 站或云盘链接，并同步填写到 README 与提交平台。
+- Demo 视频：[B 站：AI 语音绘图工具演示](https://www.bilibili.com/video/BV1b6JA63EbK/)，并同步填写到 README 与提交平台。
 - 设计文档：[docs/design.md](./design.md)
 
 ## 用户价值与创新点
