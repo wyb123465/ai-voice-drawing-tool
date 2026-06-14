@@ -23,8 +23,9 @@
   "bugs": {
     "url": "https://github.com/wyb123465/ai-voice-drawing-tool/issues"
   },
-  "homepage": "https://github.com/wyb123465/ai-voice-drawing-tool#readme",
+  "homepage": "https://wyb123465.github.io/ai-voice-drawing-tool/",
   "scripts": {
+    "check": "npm test",
     "test": "node --test tests/*.test.mjs",
     "serve": "node scripts/serve.mjs"
   },

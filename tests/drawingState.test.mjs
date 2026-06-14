@@ -143,6 +143,29 @@ test("deletes the first matching element when target is first", () => {
   assert.equal(state.elements[0].color, "#2563eb");
 });
 
+test("edits the nth matching element when target is nth", () => {
+  const initial = applyCommands(createInitialState(), [
+    { type: "draw", shape: "circle", color: "#ef4444", position: "left" },
+    { type: "draw", shape: "circle", color: "#2563eb", position: "center" },
+    { type: "draw", shape: "circle", color: "#16a34a", position: "right" },
+    { type: "draw", shape: "rectangle", color: "#111827", position: "top" }
+  ]).state;
+
+  const deleted = applyCommands(initial, [
+    { type: "delete", target: "nth", targetIndex: 2, shape: "circle" }
+  ]).state;
+
+  assert.deepEqual(deleted.elements.map((element) => element.color), ["#ef4444", "#16a34a", "#111827"]);
+
+  const transformed = applyCommands(initial, [
+    { type: "transform", target: "nth", targetIndex: 3, shape: "circle", scale: 1.25 }
+  ]).state;
+
+  assert.equal(transformed.elements[0].scale, 1);
+  assert.equal(transformed.elements[1].scale, 1);
+  assert.equal(transformed.elements[2].scale, 1.25);
+});
+
 test("edits only the element matching the color filter", () => {
   const initial = applyCommands(createInitialState(), [
     { type: "draw", shape: "circle", color: "#ef4444", position: "left" },

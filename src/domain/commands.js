@@ -90,7 +90,8 @@ export function splitCompoundCommand(input) {
     .replaceAll("帮我", "");
 
   return withLightCleanup
-    .replace(/(然后|接着|再|并且|同时)/g, "，")
+    .replace(/(然后|接着|并且|同时)/g, "，")
+    .replace(/再(?=(画|加|来|把|删除|删掉|移除|擦掉|复制|克隆|写|添加文字|加文字|文字|文本|标注|清空|撤销|重做|导出|保存|下载|向|往|变大|放大|变小|缩小|移动|移到|放到|挪|旋转|转|换成|改成|变成))/g, "，")
     .split(/[，。；;、]/)
     .map((part) => part.trim())
     .filter(Boolean);
@@ -242,12 +243,16 @@ function parseDrawShape(text) {
 }
 
 function parseTransform(text) {
+  const target = resolveTarget(text);
   const command = {
     type: "transform",
-    target: resolveTarget(text),
+    target,
     shape: parseShape(text, "last"),
     confidence: 0.82
   };
+  if (target === "nth") {
+    command.targetIndex = parseTargetIndex(text);
+  }
 
   if (/(变大|放大)/.test(text)) {
     command.scale = /一点|一些/.test(text) ? 1.25 : 1.5;
@@ -289,12 +294,16 @@ function parseTransform(text) {
 }
 
 function parseObjectCommand(type, text, confidence) {
+  const target = resolveTarget(text);
   const command = {
     type,
-    target: resolveTarget(text),
+    target,
     shape: parseShape(text, "last"),
     confidence
   };
+  if (target === "nth") {
+    command.targetIndex = parseTargetIndex(text);
+  }
   const colorFilter = parseColor(text);
   if (colorFilter) {
     command.colorFilter = colorFilter;
@@ -314,15 +323,11 @@ function blockIfAmbiguousEdit(text, command) {
 }
 
 function isAmbiguousEditTarget(text, command) {
-  if (command.shape || command.colorFilter || hasExplicitTargetReference(text) || isBareDuplicatePhrase(text)) {
+  if (command.shape || command.colorFilter || isBareDuplicatePhrase(text)) {
     return false;
   }
   const target = extractEditTargetText(text);
   return Boolean(target && !isGenericTargetText(target));
-}
-
-function hasExplicitTargetReference(text) {
-  return /(刚才|上一个|最后|最近|第一个|最初|最早|最先|开头那个|一开始|它|这个|那个|图形|对象|元素)/.test(text);
 }
 
 function isBareDuplicatePhrase(text) {
@@ -352,6 +357,11 @@ function extractEditTargetText(text) {
   if (trailingAction) {
     return cleanTargetText(trailingAction[1]);
   }
+  // 匹配"小猫删除/小猫复制"这类无"把"的口语倒装。
+  const bareTrailingAction = text.match(/^(.+?)(删除|删掉|移除|擦掉|复制|克隆)$/);
+  if (bareTrailingAction) {
+    return cleanTargetText(bareTrailingAction[1]);
+  }
   return "";
 }
 
@@ -361,19 +371,39 @@ function cleanTargetText(text) {
     target = target.replaceAll(name, "");
   }
   return target
+    .replace(/(向右|往右|朝右|右移|向左|往左|朝左|左移|向上|往上|朝上|上移|向下|往下|朝下|下移|一点|一些|稍微|微微)/g, "")
     .replace(/[的个只条座棵颗朵一二两三四五六七八九十\d]/g, "")
     .trim();
 }
 
 function isGenericTargetText(text) {
-  return !text || /^(图形|对象|元素|它|这个|那个|刚才|上一个|最后|最近|第一个|最初|最早|最先|开头那个|一开始)+$/.test(text);
+  return !text || /^(图形|对象|元素|它|这|那|这个|那个|刚才|上一个|最后|最近|第一个|最初|最早|最先|开头那个|一开始)+$/.test(text);
 }
 
 function resolveTarget(text) {
+  const targetIndex = parseTargetIndex(text);
+  if (targetIndex === 1) {
+    return "first";
+  }
+  if (targetIndex > 1) {
+    return "nth";
+  }
   if (/(第一个|最初|最早|最先|开头那个|一开始)/.test(text)) {
     return "first";
   }
   return "last";
+}
+
+function parseTargetIndex(text) {
+  const match = String(text || "").match(/第([一二两三四五六七八九十]|\d+)(?:个|只|条|座|棵|颗|朵)?/);
+  if (!match) {
+    return null;
+  }
+  const value = /^\d+$/.test(match[1]) ? Number.parseInt(match[1], 10) : NUMBER_WORDS.get(match[1]);
+  if (!Number.isInteger(value) || value < 1) {
+    return null;
+  }
+  return Math.min(value, 20);
 }
 
 function parseRotation(text) {
