@@ -124,6 +124,7 @@ export function parseVoiceCommand(input, context = {}) {
   const parts = splitCompoundCommand(input);
   let allowFallback = true;
   let blockedFeedback = "";
+  let clarification = null;
   const commands = [];
 
   for (const [index, part] of parts.entries()) {
@@ -131,6 +132,9 @@ export function parseVoiceCommand(input, context = {}) {
       if (command.type === "__blocked") {
         allowFallback = false;
         blockedFeedback ||= command.feedback;
+      } else if (command.type === "__clarify") {
+        allowFallback = false;
+        clarification ||= command.clarification;
       } else {
         commands.push(command);
       }
@@ -144,9 +148,12 @@ export function parseVoiceCommand(input, context = {}) {
     commands: commands.map(({ confidence, ...command }) => command),
     allowFallback,
     confidence,
+    clarification,
     feedback: commands.length
       ? `解析出 ${commands.length} 个操作`
-      : blockedFeedback || "没有识别到可执行的绘图指令。试试：画一个红色圆形、把刚才的图形变大、清空画布"
+      : clarification?.prompt ||
+        blockedFeedback ||
+        "没有识别到可执行的绘图指令。试试：画一个红色圆形、把刚才的图形变大、清空画布"
   };
 }
 
@@ -195,7 +202,7 @@ function parseSingleClause(clause, index, context) {
   }
 
   if (/(变大|放大|变小|缩小|移动|移到|放到|挪|旋转|转|换成|改成|变成)/.test(text) && !/(背景|底色)/.test(text)) {
-    const command = parseTransform(text);
+    const command = parseTransform(text, context);
     return [blockIfAmbiguousEdit(text, command)];
   }
 
@@ -209,6 +216,16 @@ function parseSingleClause(clause, index, context) {
         confidence: 0.78
       }
     ];
+  }
+
+  const unavailableClarificationTarget = blockUnavailableClarificationTarget(text, context);
+  if (unavailableClarificationTarget) {
+    return [unavailableClarificationTarget];
+  }
+
+  const clarification = parseClarificationCandidate(text, context);
+  if (clarification) {
+    return [{ type: "__clarify", clarification, confidence: 0.4 }];
   }
 
   const drawShape = parseDrawShape(text);
@@ -249,7 +266,7 @@ function parseDrawShape(text) {
   return parseShape(text, "last");
 }
 
-function parseTransform(text) {
+function parseTransform(text, context = {}) {
   const target = resolveTarget(text);
   const command = {
     type: "transform",
@@ -284,7 +301,7 @@ function parseTransform(text) {
       command.colorFilter = filterColor;
     }
   }
-  const move = parseMove(text);
+  const move = parseMove(text) || parseLooseMove(text);
   if (move) {
     command.move = move;
   }
@@ -295,6 +312,10 @@ function parseTransform(text) {
   const position = parsePosition(text);
   if (/(移到|放到|挪到)/.test(text) && position) {
     command.position = position;
+  }
+
+  if (isUnavailablePresentShape(command.shape, context)) {
+    return createUnavailableShapeBlock(command.shape);
   }
 
   return command;
@@ -319,6 +340,9 @@ function parseObjectCommand(type, text, confidence) {
 }
 
 function blockIfAmbiguousEdit(text, command) {
+  if (command.type === "__blocked") {
+    return command;
+  }
   if (!isAmbiguousEditTarget(text, command)) {
     return command;
   }
@@ -439,6 +463,101 @@ function parseMove(text) {
     return { dx: 0, dy: 70 };
   }
   return null;
+}
+
+function parseClarificationCandidate(text, context = {}) {
+  if (/(画|加|有|写|删除|删掉|移除|复制|克隆|背景|底色|导出|保存|清空|撤销|重做)/.test(text)) {
+    return null;
+  }
+  const parsedShape = parseShape(text, "last");
+  if (isUnavailablePresentShape(parsedShape, context)) {
+    return null;
+  }
+  const move = parseLooseMove(text);
+  const usesFocusedPronoun = hasFocusReference(text) && context.focusId;
+  if ((!parsedShape && !usesFocusedPronoun) || !move) {
+    return null;
+  }
+  const direction = describeMove(move);
+  const shapeLabel = parsedShape ? describeShape(parsedShape) : "当前图形";
+  return {
+    kind: "confirm-command",
+    prompt: `请确认：你是想把${shapeLabel}${direction}吗？请说“对”确认，或说“取消”。`,
+    commands: [
+      {
+        type: "transform",
+        target: usesFocusedPronoun ? "focus" : "last",
+        shape: parsedShape || null,
+        move
+      }
+    ]
+  };
+}
+
+function blockUnavailableClarificationTarget(text, context = {}) {
+  const parsedShape = parseShape(text, "last");
+  if (!parsedShape || !parseLooseMove(text) || !isUnavailablePresentShape(parsedShape, context)) {
+    return null;
+  }
+  return createUnavailableShapeBlock(parsedShape);
+}
+
+function createUnavailableShapeBlock(shape) {
+  return {
+    type: "__blocked",
+    confidence: 0.95,
+    feedback: `画布上还没有${describeShape(shape)}，请先画一个${describeShape(shape)}。`
+  };
+}
+
+function isUnavailablePresentShape(shape, context = {}) {
+  return Boolean(shape && Array.isArray(context.presentShapes) && !context.presentShapes.includes(shape));
+}
+
+function parseLooseMove(text) {
+  if (/(上去|上来|往上去|向上一点|往上一点|上挪|上移一点)/.test(text)) {
+    return { dx: 0, dy: -70 };
+  }
+  if (/(下去|下来|往下去|向下一点|往下一点|下挪|下移一点)/.test(text)) {
+    return { dx: 0, dy: 70 };
+  }
+  if (/(左一点|往左一点|向左一点|左挪|左移一点)/.test(text)) {
+    return { dx: -80, dy: 0 };
+  }
+  if (/(右一点|往右一点|向右一点|右挪|右移一点)/.test(text)) {
+    return { dx: 80, dy: 0 };
+  }
+  return null;
+}
+
+function describeMove(move) {
+  if (move.dy < 0) {
+    return "向上移动";
+  }
+  if (move.dy > 0) {
+    return "向下移动";
+  }
+  if (move.dx < 0) {
+    return "向左移动";
+  }
+  return "向右移动";
+}
+
+function describeShape(shape) {
+  const labels = {
+    circle: "圆形",
+    square: "正方形",
+    rectangle: "矩形",
+    triangle: "三角形",
+    line: "直线",
+    wave: "波浪线",
+    star: "星星",
+    sun: "太阳",
+    mountain: "山",
+    tree: "树",
+    text: "文字"
+  };
+  return labels[shape] || shape;
 }
 
 function parseRelation(text) {
@@ -592,6 +711,34 @@ function average(values) {
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function resolveClarificationAnswer(input, clarification) {
+  if (!clarification?.commands?.length) {
+    return { status: "none", commands: [], feedback: "" };
+  }
+  const answer = normalizeSpeech(input);
+  if (/(取消|不用|不要|算了|否|不是|先别)/.test(answer)) {
+    return { status: "canceled", commands: [], feedback: "已取消这次操作。" };
+  }
+  if (/(对|是|是的|确认|可以|没错|好|执行|移动)/.test(answer)) {
+    return {
+      status: "confirmed",
+      commands: cloneCommands(clarification.commands),
+      feedback: "已确认，正在执行。"
+    };
+  }
+  return { status: "unclear", commands: [], feedback: "没有听到明确确认，已取消这次操作。" };
+}
+
+function cloneCommands(commands) {
+  return commands.map((command) => {
+    const copy = { ...command };
+    if (command.move) {
+      copy.move = { ...command.move };
+    }
+    return copy;
+  });
 }
 
 export const KNOWN_SHAPES = SHAPE_ALIASES.map(([shape]) => shape);

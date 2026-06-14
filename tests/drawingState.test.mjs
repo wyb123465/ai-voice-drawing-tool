@@ -4,7 +4,7 @@ import {
   applyCommands,
   createInitialState
 } from "../src/domain/drawingState.js";
-import { parseVoiceCommand } from "../src/domain/commands.js";
+import { parseVoiceCommand, resolveClarificationAnswer } from "../src/domain/commands.js";
 
 test("adds a drawn circle to the canvas state", () => {
   const { state } = applyCommands(createInitialState(), [
@@ -211,4 +211,56 @@ test("updates focus to ordinary newly drawn shapes before pronoun edits", () => 
   assert.equal(circle.color, "#111827");
   assert.equal(square.color, "#ef4444");
   assert.equal(state.focusId, square.id);
+});
+
+test("moves an existing shape only after clarification is confirmed", () => {
+  const initial = applyCommands(createInitialState(), parseVoiceCommand("画一个三角形").commands).state;
+  const triangleBefore = initial.elements[0];
+  const unclear = parseVoiceCommand("整个三角形上去");
+  const confirmed = resolveClarificationAnswer("是的", unclear.clarification);
+
+  const { state } = applyCommands(initial, confirmed.commands);
+
+  assert.equal(state.elements.length, 1);
+  assert.equal(state.elements[0].shape, "triangle");
+  assert.equal(state.elements[0].y, triangleBefore.y - 70);
+  assert.equal(state.focusId, triangleBefore.id);
+});
+
+test("moves the focused shape after confirming a pronoun-only loose movement", () => {
+  const initial = applyCommands(createInitialState(), parseVoiceCommand("画一个圆").commands).state;
+  const circleBefore = initial.elements[0];
+  const unclear = parseVoiceCommand("把它上去", { focusId: initial.focusId });
+  const confirmed = resolveClarificationAnswer("是的", unclear.clarification);
+
+  const { state } = applyCommands(initial, confirmed.commands);
+
+  assert.equal(state.elements.length, 1);
+  assert.equal(state.elements[0].shape, "circle");
+  assert.equal(state.elements[0].y, circleBefore.y - 70);
+  assert.equal(state.focusId, circleBefore.id);
+});
+
+test("moves the focused matching shape when a loose clarification includes pronoun and shape", () => {
+  let state = createInitialState();
+  state = applyCommands(state, parseVoiceCommand("画一个圆").commands).state;
+  state = applyCommands(state, parseVoiceCommand("画一个圆").commands).state;
+  state = applyCommands(state, parseVoiceCommand("把第一个圆变大一点").commands).state;
+  state = applyCommands(
+    state,
+    parseVoiceCommand("在它右边画三角形", {
+      focusId: state.focusId,
+      lastShape: state.elements.at(-1)?.shape || null
+    }).commands
+  ).state;
+  const firstCircleBefore = state.elements[0];
+  const secondCircleBefore = state.elements[1];
+  const unclear = parseVoiceCommand("把这个圆上去", { focusId: state.focusId });
+  const confirmed = resolveClarificationAnswer("是的", unclear.clarification);
+
+  const result = applyCommands(state, confirmed.commands).state;
+
+  assert.equal(result.elements[0].y, firstCircleBefore.y - 70);
+  assert.equal(result.elements[1].y, secondCircleBefore.y);
+  assert.equal(result.focusId, firstCircleBefore.id);
 });

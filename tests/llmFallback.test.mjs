@@ -35,6 +35,22 @@ test("does not fall back for ambiguous edits that could mutate the wrong object"
   assert.match(result.feedback, /无法确定/);
 });
 
+test("does not fall back when local rules need a one-round clarification", async () => {
+  let called = false;
+  const resolver = async () => {
+    called = true;
+    return { commands: [{ type: "draw", shape: "triangle", color: "红色", position: "center" }] };
+  };
+
+  const result = await resolveVoiceCommand("整个三角形上去", { resolver });
+
+  assert.equal(called, false);
+  assert.equal(result.source, "rule");
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.clarification.kind, "confirm-command");
+  assert.match(result.feedback, /请确认/);
+});
+
 test("still allows explicit last-object edits without a shape name", async () => {
   const result = await resolveVoiceCommand("把刚才的图形变大一点");
 

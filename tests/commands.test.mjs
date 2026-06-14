@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   normalizeSpeech,
   parseVoiceCommand,
+  resolveClarificationAnswer,
   splitCompoundCommand
 } from "../src/domain/commands.js";
 
@@ -95,11 +96,17 @@ test("parses natural transform and canvas control commands", () => {
   const transform = parseVoiceCommand("把刚才的圆变大一点").commands[0];
   const clear = parseVoiceCommand("清空画布").commands[0];
   const background = parseVoiceCommand("把背景改成浅蓝色").commands[0];
+  const focusedLooseMove = parseVoiceCommand("把那个圆挪上去", { focusId: "el-1" }).commands[0];
 
   assert.equal(transform.type, "transform");
   assert.equal(transform.target, "last");
   assert.equal(transform.shape, "circle");
   assert.ok(transform.scale > 1);
+
+  assert.equal(focusedLooseMove.type, "transform");
+  assert.equal(focusedLooseMove.target, "focus");
+  assert.equal(focusedLooseMove.shape, "circle");
+  assert.deepEqual(focusedLooseMove.move, { dx: 0, dy: -70 });
 
   assert.equal(clear.type, "clear");
 
@@ -261,4 +268,118 @@ test("blocks ambiguous edits for unknown semantic objects", () => {
 
   assert.equal(explicitLast.commands[0].type, "transform");
   assert.equal(explicitLast.commands[0].target, "last");
+});
+
+test("asks for one confirmation before applying unclear shape movement", () => {
+  const result = parseVoiceCommand("整个三角形上去");
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification.kind, "confirm-command");
+  assert.match(result.clarification.prompt, /三角形/);
+  assert.match(result.clarification.prompt, /向上移动/);
+
+  const confirmed = resolveClarificationAnswer("对", result.clarification);
+  assert.equal(confirmed.status, "confirmed");
+  assert.deepEqual(confirmed.commands, [
+    {
+      type: "transform",
+      target: "last",
+      shape: "triangle",
+      move: { dx: 0, dy: -70 }
+    }
+  ]);
+
+  const canceled = resolveClarificationAnswer("取消", result.clarification);
+  assert.equal(canceled.status, "canceled");
+  assert.deepEqual(canceled.commands, []);
+});
+
+test("asks for confirmation when a loose movement uses the focused pronoun", () => {
+  const result = parseVoiceCommand("把它上去", { focusId: "el-1" });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification.kind, "confirm-command");
+  assert.match(result.clarification.prompt, /当前图形/);
+  assert.match(result.clarification.prompt, /向上移动/);
+
+  const confirmed = resolveClarificationAnswer("对", result.clarification);
+  assert.equal(confirmed.status, "confirmed");
+  assert.deepEqual(confirmed.commands, [
+    {
+      type: "transform",
+      target: "focus",
+      shape: null,
+      move: { dx: 0, dy: -70 }
+    }
+  ]);
+});
+
+test("keeps explicit-shape loose movement anchored to focus when a pronoun is present", () => {
+  const result = parseVoiceCommand("把这个圆上去", { focusId: "el-1" });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification.kind, "confirm-command");
+  assert.match(result.clarification.prompt, /圆形/);
+
+  const confirmed = resolveClarificationAnswer("对", result.clarification);
+  assert.equal(confirmed.status, "confirmed");
+  assert.deepEqual(confirmed.commands, [
+    {
+      type: "transform",
+      target: "focus",
+      shape: "circle",
+      move: { dx: 0, dy: -70 }
+    }
+  ]);
+});
+
+test("does not clarify or draw when a loose movement names a missing shape", () => {
+  const result = parseVoiceCommand("把这个圆上去", {
+    focusId: "el-1",
+    presentShapes: ["triangle"]
+  });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification, null);
+});
+
+test("blocks direct scaling when it names a missing shape", () => {
+  const result = parseVoiceCommand("把这个圆变大", {
+    focusId: "el-1",
+    presentShapes: ["triangle"]
+  });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification, null);
+  assert.match(result.feedback, /画布上还没有圆形/);
+});
+
+test("blocks direct recoloring when it names a missing shape", () => {
+  const result = parseVoiceCommand("把这个圆换成红色", {
+    focusId: "el-1",
+    presentShapes: ["triangle"]
+  });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification, null);
+  assert.match(result.feedback, /画布上还没有圆形/);
+});
+
+test("still clarifies when a loose movement names a present shape", () => {
+  const result = parseVoiceCommand("把这个圆上去", {
+    focusId: "el-1",
+    presentShapes: ["circle"]
+  });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification.kind, "confirm-command");
+  assert.equal(result.clarification.commands[0].target, "focus");
+  assert.equal(result.clarification.commands[0].shape, "circle");
 });

@@ -30,7 +30,7 @@ const ALLOWED_TYPES = new Set(["draw", "text", "background", "clear"]);
  *
  * @param {string} input 原始语音文本
  * @param {object} [options]
- * @param {object} [options.context] 传给本地解析器的上下文，如 { lastShape }
+ * @param {object} [options.context] 传给本地解析器的上下文，如 { lastShape, focusId, presentShapes }
  * @param {(text: string, ctx: object) => Promise<{commands: any[]}>} [options.resolver]
  *        注入的云端解析器；缺省即纯本地。
  * @param {number} [options.threshold] 触发兜底的置信度阈值。
@@ -80,6 +80,9 @@ export async function resolveVoiceCommand(input, options = {}) {
 export function shouldUseFallback(localResult, threshold = FALLBACK_CONFIDENCE_THRESHOLD) {
   if (!localResult || !Array.isArray(localResult.commands)) {
     return true;
+  }
+  if (localResult.clarification) {
+    return false;
   }
   if (localResult.allowFallback === false) {
     return false;

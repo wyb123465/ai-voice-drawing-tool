@@ -1,4 +1,5 @@
 import { resolveVoiceCommand } from "./domain/llmFallback.js";
+import { resolveClarificationAnswer } from "./domain/commands.js";
 import { createOpenAiResolver } from "./llm/openaiResolver.js";
 import { createMockLlmResolver } from "./llm/mockResolver.js";
 import { parseDemoScript } from "./domain/demoScript.js";
@@ -34,12 +35,14 @@ const metricLastAction = document.querySelector("#metricLastAction");
 const llmMode = document.querySelector("#llmMode");
 const llmDescription = document.querySelector("#llmDescription");
 const runLlmExample = document.querySelector("#runLlmExample");
+const clarificationStatus = document.querySelector("#clarificationStatus");
 
 let state = createInitialState();
 let recognition = null;
 let listening = false;
 let llmResolver = null;
 let llmConfigUsed = null;
+let pendingClarification = null;
 // handleUtterance 是 async：不串行的话，连续两句最终识别结果会读到同一份旧 state，
 // 后执行的一句会覆盖前一句的绘制结果。所有入口都必须经过这个队列。
 let utteranceQueue = Promise.resolve();
@@ -216,11 +219,47 @@ async function handleUtterance(text, options = {}) {
   }
 
   liveTranscript.textContent = text;
+  if (pendingClarification) {
+    const resolved = resolveClarificationAnswer(text, pendingClarification);
+    const prompt = pendingClarification.prompt;
+    pendingClarification = null;
+
+    if (resolved.status === "confirmed") {
+      updateClarificationPanel("已确认，正在执行澄清后的操作。");
+      await executeCommands(text, {
+        commands: resolved.commands,
+        source: "clarification",
+        feedback: resolved.feedback
+      });
+      return;
+    }
+
+    const feedback = resolved.feedback || "已取消这次操作。";
+    updateClarificationPanel("暂无待确认问题。");
+    logEntry(`${resolved.status === "canceled" ? "已取消" : "未确认"}：${prompt}`);
+    updateMetrics(resolved.status === "canceled" ? "澄清取消" : "澄清未确认", text);
+    speak(feedback);
+    return;
+  }
+
   const resolver = getLlmResolver(options);
   const parsed = await resolveVoiceCommand(text, {
-    context: { lastShape: state.elements.at(-1)?.shape || null },
+    context: {
+      lastShape: state.elements.at(-1)?.shape || null,
+      focusId: state.focusId || null,
+      presentShapes: [...new Set(state.elements.map((element) => element.shape))]
+    },
     resolver
   });
+
+  if (parsed.clarification) {
+    pendingClarification = parsed.clarification;
+    updateClarificationPanel(parsed.clarification.prompt);
+    logEntry(`澄清追问：${parsed.clarification.prompt}`);
+    updateMetrics("澄清追问", parsed.clarification.prompt);
+    speak(parsed.clarification.prompt);
+    return;
+  }
 
   if (!parsed.commands.length) {
     logEntry(`未执行：${text}`);
@@ -229,6 +268,10 @@ async function handleUtterance(text, options = {}) {
     return;
   }
 
+  await executeCommands(text, parsed, resolver);
+}
+
+async function executeCommands(text, parsed, resolver = null) {
   const result = applyCommands(state, parsed.commands);
   state = result.state;
   renderCanvas(canvas, state);
@@ -237,7 +280,14 @@ async function handleUtterance(text, options = {}) {
     exportCanvas();
   }
 
-  const sourceTag = parsed.source !== "llm" ? "规则" : resolver === mockResolver ? "云端·模拟" : "云端";
+  const sourceTag =
+    parsed.source === "llm"
+      ? resolver === mockResolver
+        ? "云端·模拟"
+        : "云端"
+      : parsed.source === "clarification"
+        ? "澄清确认"
+        : "规则";
   if (sourceTag === "云端·模拟") {
     showMockLlmMode();
   } else if (sourceTag === "云端") {
@@ -302,6 +352,10 @@ function updateMetrics(source = "待执行", lastAction = "等待指令") {
   metricHistory.textContent = String(state.history.length);
   metricSource.textContent = source;
   metricLastAction.textContent = lastAction;
+}
+
+function updateClarificationPanel(text = "暂无待确认问题。") {
+  clarificationStatus.textContent = text;
 }
 
 function updateLlmPanel() {
