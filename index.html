@@ -55,6 +55,16 @@
           </dl>
         </section>
 
+        <section class="panel llm-panel" aria-labelledby="llmTitle">
+          <h2 id="llmTitle">AI 兜底</h2>
+          <div class="llm-status-row">
+            <span class="llm-dot" aria-hidden="true"></span>
+            <span id="llmMode">规则优先 · 默认离线</span>
+          </div>
+          <p id="llmDescription" class="llm-description">常见指令由本地规则解析；开放表达或低置信度指令才进入 LLM 兜底，并经过白名单校验后执行。</p>
+          <button id="runLlmExample" class="secondary-action compact-action" type="button">试试：画一只猫</button>
+        </section>
+
         <section class="panel review-panel" aria-labelledby="reviewDemoTitle">
           <h2 id="reviewDemoTitle">评审脚本</h2>
           <ol id="reviewDemoSteps" class="review-steps"></ol>

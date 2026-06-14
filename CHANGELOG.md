@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **README 文档**：快速运行、支持指令、Demo 流程、技术实现、提交清单
 - **提交材料补强**：补充用户价值、提交说明、评审前清单、PR 模板和 MIT License
 - **评审体验面板**：首屏提供一键评审演示、逐步脚本按钮和运行看板
+- **AI 兜底可见化**：首屏显示 LLM 兜底状态，并提供无密钥模拟示例入口
 
 ### Technical
 - 纯前端实现，无后端依赖
