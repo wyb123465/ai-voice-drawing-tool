@@ -1,6 +1,6 @@
 # AI 语音绘图工具
 
-[![Tests](https://img.shields.io/badge/tests-47%20passed-success)](https://github.com/wyb123465/ai-voice-drawing-tool)
+[![Tests](https://img.shields.io/badge/tests-54%20passed-success)](https://github.com/wyb123465/ai-voice-drawing-tool)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
 
@@ -22,9 +22,11 @@
 
 - 🎯 **规则优先 + LLM 兜底**：默认纯本地解析，低置信度才调云端，零成本、零隐私外泄
 - 🛡️ **未知对象阻断**："把猫变大"返回明确提示，不会误操作最后对象
+- 🧭 **焦点指代**："它/这个/那个"会优先指向当前焦点对象，画布上有描边提示
+- 🎙️ **ASR 容错**：支持“园/元→圆”“兰色→蓝色”“桔色/橘色→橙色”等高频识别偏差
 - 🔒 **白名单校验**：云端开放输出必须过形状/颜色/位置白名单，非法值就近回退默认
 - 🎬 **演示模式**：`?llmdemo=1` 无需真密钥即可演示完整云端链路
-- 🧪 **47 个测试全过**：覆盖解析、状态、兜底、网络异常等关键路径
+- 🧪 **55 个测试全过**：覆盖解析、状态、渲染、兜底、网络异常等关键路径
 - 📦 **零依赖**：纯前端，无运行时依赖，测试用 Node.js 内置 test runner
 - 🏗️ **企业级架构**：命令解析、状态引擎、渲染器完全分离，可测试、可复现
 
@@ -91,7 +93,7 @@ http://localhost:4173/?replay=1&demo=画一条黑色波浪线|画一个蓝色矩
 
 **项目规模**
 - 约 2600 行代码（含测试）
-- 47 个测试用例，100% 通过
+- 55 个测试用例，100% 通过
 - 16 个模块，零运行时依赖
 
 ## 🎯 支持的语音指令
@@ -101,9 +103,13 @@ http://localhost:4173/?replay=1&demo=画一条黑色波浪线|画一个蓝色矩
 ```text
 画一个红色圆形
 画一个蓝色矩形
+画一个正方形
+画个园
+画一个兰色圆
 画一个黄色星星
 画一条黑色波浪线
 在圆形右边画一个蓝色矩形
+画一个圆，在它右边画一个正方形，然后把它改成红色
 在左上角写上“你好七牛”
 把背景改成浅蓝色
 ```

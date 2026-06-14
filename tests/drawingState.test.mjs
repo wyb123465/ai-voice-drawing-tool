@@ -4,6 +4,7 @@ import {
   applyCommands,
   createInitialState
 } from "../src/domain/drawingState.js";
+import { parseVoiceCommand } from "../src/domain/commands.js";
 
 test("adds a drawn circle to the canvas state", () => {
   const { state } = applyCommands(createInitialState(), [
@@ -13,6 +14,7 @@ test("adds a drawn circle to the canvas state", () => {
   assert.equal(state.elements.length, 1);
   assert.equal(state.elements[0].shape, "circle");
   assert.equal(state.elements[0].color, "#ef4444");
+  assert.equal(state.focusId, state.elements[0].id);
   assert.equal(state.history.length, 1);
 });
 
@@ -185,4 +187,28 @@ test("edits only the element matching the color filter", () => {
 
   assert.equal(recolored.elements[0].color, "#16a34a");
   assert.equal(recolored.elements[1].color, "#2563eb");
+});
+
+test("keeps pronoun focus on the anchor after a relative draw", () => {
+  const parsed = parseVoiceCommand("画一个圆，在它右边画一个正方形，然后把它改成红色");
+  const { state } = applyCommands(createInitialState(), parsed.commands);
+  const circle = state.elements.find((element) => element.shape === "circle");
+  const square = state.elements.find((element) => element.shape === "square");
+
+  assert.equal(state.elements.length, 2);
+  assert.equal(circle.color, "#ef4444");
+  assert.equal(square.color, "#111827");
+  assert.equal(square.width, square.height);
+  assert.equal(state.focusId, circle.id);
+});
+
+test("updates focus to ordinary newly drawn shapes before pronoun edits", () => {
+  const parsed = parseVoiceCommand("画一个圆，再画一个方块，然后把它改成红色");
+  const { state } = applyCommands(createInitialState(), parsed.commands);
+  const circle = state.elements.find((element) => element.shape === "circle");
+  const square = state.elements.find((element) => element.shape === "square");
+
+  assert.equal(circle.color, "#111827");
+  assert.equal(square.color, "#ef4444");
+  assert.equal(state.focusId, square.id);
 });
