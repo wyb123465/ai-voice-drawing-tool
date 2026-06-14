@@ -302,6 +302,19 @@ function findTargetIndex(state, command) {
     return -1;
   }
 
+  if (command.target === "nth") {
+    let matchCount = 0;
+    for (let index = 0; index < state.elements.length; index += 1) {
+      if (matches(index)) {
+        matchCount += 1;
+      }
+      if (matchCount === command.targetIndex) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
   for (let index = state.elements.length - 1; index >= 0; index -= 1) {
     if (matches(index)) {
       return index;

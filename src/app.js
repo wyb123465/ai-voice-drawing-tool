@@ -2,6 +2,7 @@ import { resolveVoiceCommand } from "./domain/llmFallback.js";
 import { createOpenAiResolver } from "./llm/openaiResolver.js";
 import { createMockLlmResolver } from "./llm/mockResolver.js";
 import { parseDemoScript } from "./domain/demoScript.js";
+import { scheduleDemoReplay } from "./domain/demoReplay.js";
 import { applyCommands, createInitialState } from "./domain/drawingState.js";
 import { renderCanvas } from "./domain/renderCanvas.js";
 
@@ -45,13 +46,7 @@ window.voiceDrawingDemo = {
   getState: () => structuredClone(state)
 };
 
-if (demoCommands.length) {
-  requestAnimationFrame(() => {
-    for (const command of demoCommands) {
-      enqueueUtterance(command);
-    }
-  });
-}
+scheduleDemoReplay(demoCommands, enqueueUtterance);
 
 function enqueueUtterance(text) {
   const run = utteranceQueue.then(() => handleUtterance(text));

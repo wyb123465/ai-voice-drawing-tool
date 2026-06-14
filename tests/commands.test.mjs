@@ -90,10 +90,17 @@ test("parses parameterized wave drawing commands", () => {
 
 test("resolves first vs last target for edit commands", () => {
   const deleteFirst = parseVoiceCommand("删除第一个圆").commands[0];
+  const deleteSecond = parseVoiceCommand("删除第二个圆").commands[0];
+  const growThirdBlue = parseVoiceCommand("把第三个蓝色圆变大").commands[0];
   const deleteLast = parseVoiceCommand("删除刚才的圆").commands[0];
   const dupeFirst = parseVoiceCommand("复制最初的矩形").commands[0];
 
   assert.equal(deleteFirst.target, "first");
+  assert.equal(deleteSecond.target, "nth");
+  assert.equal(deleteSecond.targetIndex, 2);
+  assert.equal(growThirdBlue.target, "nth");
+  assert.equal(growThirdBlue.targetIndex, 3);
+  assert.equal(growThirdBlue.colorFilter, "#2563eb");
   assert.equal(deleteLast.target, "last");
   assert.equal(dupeFirst.target, "first");
 });
@@ -101,6 +108,7 @@ test("resolves first vs last target for edit commands", () => {
 test("extracts label text from unquoted position-prefixed text commands", () => {
   const lead = parseVoiceCommand("在左上角写上你好七牛").commands[0];
   const trail = parseVoiceCommand("写上你好七牛在左上角").commands[0];
+  const containsConnectorWord = parseVoiceCommand("写上再见").commands[0];
 
   assert.equal(lead.type, "text");
   assert.equal(lead.text, "你好七牛");
@@ -108,6 +116,18 @@ test("extracts label text from unquoted position-prefixed text commands", () => 
 
   assert.equal(trail.text, "你好七牛");
   assert.equal(trail.position, "top-left");
+
+  assert.equal(containsConnectorWord.type, "text");
+  assert.equal(containsConnectorWord.text, "再见");
+});
+
+test("splits connector-like 再 only before a new command", () => {
+  const drawSequence = parseVoiceCommand("画一个红色圆再画一个蓝色矩形");
+  const text = parseVoiceCommand("写上再见");
+
+  assert.deepEqual(drawSequence.commands.map((command) => command.shape), ["circle", "rectangle"]);
+  assert.equal(text.commands.length, 1);
+  assert.equal(text.commands[0].text, "再见");
 });
 
 test("parses color filters for edits and after-marker colors for recoloring", () => {
@@ -145,9 +165,14 @@ test("blocks ambiguous edits for unknown semantic objects", () => {
   const unknownLeadingTransform = parseVoiceCommand("猫变大一点");
   const unknownCausativeTransform = parseVoiceCommand("让猫变大一点");
   const unknownDelete = parseVoiceCommand("删除小猫");
+  const unknownBareTrailingDelete = parseVoiceCommand("小猫删除");
   const unknownTrailingDelete = parseVoiceCommand("把小猫删除");
   const unknownTrailingDuplicate = parseVoiceCommand("把小猫复制");
+  const unknownDemonstrativeDelete = parseVoiceCommand("把那个小猫删除");
+  const unknownDemonstrativeTransform = parseVoiceCommand("把这个小猫变大");
   const directionOnlyMove = parseVoiceCommand("向右移动");
+  const pronounDelete = parseVoiceCommand("把它删除");
+  const demonstrativeGenericDelete = parseVoiceCommand("把那个图形删除");
   const explicitLast = parseVoiceCommand("把刚才的图形变大一点");
 
   assert.equal(unknownTransform.commands.length, 0);
@@ -163,14 +188,29 @@ test("blocks ambiguous edits for unknown semantic objects", () => {
   assert.equal(unknownDelete.commands.length, 0);
   assert.equal(unknownDelete.allowFallback, false);
 
+  assert.equal(unknownBareTrailingDelete.commands.length, 0);
+  assert.equal(unknownBareTrailingDelete.allowFallback, false);
+
   assert.equal(unknownTrailingDelete.commands.length, 0);
   assert.equal(unknownTrailingDelete.allowFallback, false);
 
   assert.equal(unknownTrailingDuplicate.commands.length, 0);
   assert.equal(unknownTrailingDuplicate.allowFallback, false);
 
+  assert.equal(unknownDemonstrativeDelete.commands.length, 0);
+  assert.equal(unknownDemonstrativeDelete.allowFallback, false);
+
+  assert.equal(unknownDemonstrativeTransform.commands.length, 0);
+  assert.equal(unknownDemonstrativeTransform.allowFallback, false);
+
   assert.equal(directionOnlyMove.commands[0].type, "transform");
   assert.equal(directionOnlyMove.commands[0].move.dx, 80);
+
+  assert.equal(pronounDelete.commands[0].type, "delete");
+  assert.equal(pronounDelete.commands[0].target, "last");
+
+  assert.equal(demonstrativeGenericDelete.commands[0].type, "delete");
+  assert.equal(demonstrativeGenericDelete.commands[0].target, "last");
 
   assert.equal(explicitLast.commands[0].type, "transform");
   assert.equal(explicitLast.commands[0].target, "last");
