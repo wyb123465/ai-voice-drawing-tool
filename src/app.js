@@ -246,7 +246,8 @@ async function handleUtterance(text, options = {}) {
   const parsed = await resolveVoiceCommand(text, {
     context: {
       lastShape: state.elements.at(-1)?.shape || null,
-      focusId: state.focusId || null
+      focusId: state.focusId || null,
+      presentShapes: [...new Set(state.elements.map((element) => element.shape))]
     },
     resolver
   });

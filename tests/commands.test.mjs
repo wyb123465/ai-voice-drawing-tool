@@ -335,3 +335,27 @@ test("keeps explicit-shape loose movement anchored to focus when a pronoun is pr
     }
   ]);
 });
+
+test("does not clarify or draw when a loose movement names a missing shape", () => {
+  const result = parseVoiceCommand("把这个圆上去", {
+    focusId: "el-1",
+    presentShapes: ["triangle"]
+  });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification, null);
+});
+
+test("still clarifies when a loose movement names a present shape", () => {
+  const result = parseVoiceCommand("把这个圆上去", {
+    focusId: "el-1",
+    presentShapes: ["circle"]
+  });
+
+  assert.equal(result.commands.length, 0);
+  assert.equal(result.allowFallback, false);
+  assert.equal(result.clarification.kind, "confirm-command");
+  assert.equal(result.clarification.commands[0].target, "focus");
+  assert.equal(result.clarification.commands[0].shape, "circle");
+});

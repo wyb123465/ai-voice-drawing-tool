@@ -218,6 +218,11 @@ function parseSingleClause(clause, index, context) {
     ];
   }
 
+  const unavailableClarificationTarget = blockUnavailableClarificationTarget(text, context);
+  if (unavailableClarificationTarget) {
+    return [unavailableClarificationTarget];
+  }
+
   const clarification = parseClarificationCandidate(text, context);
   if (clarification) {
     return [{ type: "__clarify", clarification, confidence: 0.4 }];
@@ -458,6 +463,9 @@ function parseClarificationCandidate(text, context = {}) {
     return null;
   }
   const parsedShape = parseShape(text, "last");
+  if (isUnavailablePresentShape(parsedShape, context)) {
+    return null;
+  }
   const move = parseLooseMove(text);
   const usesFocusedPronoun = hasFocusReference(text) && context.focusId;
   if ((!parsedShape && !usesFocusedPronoun) || !move) {
@@ -477,6 +485,22 @@ function parseClarificationCandidate(text, context = {}) {
       }
     ]
   };
+}
+
+function blockUnavailableClarificationTarget(text, context = {}) {
+  const parsedShape = parseShape(text, "last");
+  if (!parsedShape || !parseLooseMove(text) || !isUnavailablePresentShape(parsedShape, context)) {
+    return null;
+  }
+  return {
+    type: "__blocked",
+    confidence: 0.95,
+    feedback: `画布上还没有${describeShape(parsedShape)}，请先画一个${describeShape(parsedShape)}。`
+  };
+}
+
+function isUnavailablePresentShape(shape, context = {}) {
+  return Boolean(shape && Array.isArray(context.presentShapes) && !context.presentShapes.includes(shape));
 }
 
 function parseLooseMove(text) {
